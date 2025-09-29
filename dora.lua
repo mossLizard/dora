@@ -17,11 +17,13 @@ local doLoop = true
 local inputs = {}
 local screenMode = "map"
 local currentTab = "a1"
-local currentPath = {['main'] = {"noise_router"}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
-local currentKeys = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
-local currentTable = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
-local currentSubdirs = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
-local currentFiles = {['main'] = {}, ['a1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c"}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local validTabs = {"main", "a1","a2","a3","a4"}
+local currentPath = {['main'] = {"noise_router"}, ['a1'] = {"test_subdir"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentKeys = {}
+local currentTable = {}
+local currentSubdirs = {}
+local currentFiles = {['main'] = {}, ['a1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local auxHasData = {['main'] = true, ['a1'] = true}
 local mapDrawColors = {}
 local mapScrollOfset = 0
 local mapSelc = 3
@@ -85,17 +87,18 @@ function matchTable(inTable, recurse) -- STUB
   return false
 end
 
-function trySubdir(dirKey)
-  if currentTable[currentTab][dirKey] == nil then return false, "doesNotExist"
-  elseif type(currentTable[currentTab][dirKey]) ~= "table" then return false, "notATable"
+function trySubdir(dirKey, tab)
+  if currentTable[tab][dirKey] == nil then return false, "doesNotExist"
+  elseif type(currentTable[tab][dirKey]) ~= "table" then return false, "notATable"
   else
-	currentPath[currentTab][#currentPath+1] = dirKey
+	currentPath[tab][#currentPath[tab]+1] = dirKey
 	needExplore = true
     return true
   end
 end
 
 function wrangleInputs() -- "handle" felt like too gentle a word for what I am doing here
+  tab = currentTab
   for i,event in ipairs(inputs) do
     if event[1] == "key" or event[1] == "mouse_click" or event[1] == "mouse_drag" or event[1] == "mouse_up" then
 	  needRedraw = true
@@ -107,15 +110,26 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 		  if my >=3 and my <= 7 then
 		    mapScrollOfset = math.max(mapScrollOfset-1,0)
 		  elseif my >=11 and my <= 15 then
-		    mapScrollOfset = math.min(mapScrollOfset+1,math.max(1,#currentKeys-11))
+		    mapScrollOfset = math.min(mapScrollOfset+1,math.max(1,#currentKeys[tab]-11))
 		  end
 		needRedraw = true
 		trySound("ui.bip_0")
+		elseif my == 1 then -- tab menu
+		  if mx >= 29 and mx <= 32 then -- main tab
+		    currentTab = "main"
+			needRedraw = true
+		    trySound("ui.bip_0",1,0.8)
+		  elseif mx >= 34 and mx <= 45 then -- aux tabs
+		    local selcTab = math.floor((mx - 28) / 3)
+			currentTab = validTabs[selcTab]
+			needRedraw = true
+		    trySound("ui.bip_0",1,0.8)
+		  end
 		elseif mx >= 3 and my >= 3 and my <= 15 then --clicked a directory
 	      selcItem = my-3+mapScrollOfset
-	      if (selcItem > 0 and selcItem <= #currentKeys) then
+	      if (selcItem > 0 and selcItem <= #currentKeys[tab]) then
 		    if selcItem == mapSelc then
-	          trySubdir(currentKeys[selcItem])
+	          trySubdir(currentKeys[tab][selcItem],tab)
 		      trySound("ui.bip_0")
 		      mapSelc = 0
 		      mapScrollOfset = 0
@@ -124,7 +138,7 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 		      trySound("ui.bip_0")
 		    end
 	      else--if selcItem <= 0 and selcItem >= -1 and #currentPath > 0 then
-	        currentPath[#currentPath] = nil
+	        currentPath[tab][#currentPath[tab]] = nil
 		    trySound("ui.bip_0")
 			mapSelc = 0
 			mapScrollOfset = 0
@@ -132,9 +146,6 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 		  end
 		elseif my == 17 then -- edit mode (TEMPORARY!!!!)
 		  screenMode = 'edit'
-		  if mapSelc > 0 then
-		    tableClipboard = table.sort(currentTable)
-	      end
 		end
 	  end
 	elseif screenMode == 'edit' then
@@ -192,13 +203,12 @@ function getSubdir(sourceTable, path)
   -- read from the given "subdirectory" 
   print(serl(path))
   ref = sourceTable
-  if #path == 0 then return fileTable end
-  --print(serl(currentFiles[tab]), serl(path))
-  ref = sourceTable[path[1]]
-  --ref = sourceTable[path[1]]
-  for i=2, #path do
+  --if #path == 0 then return fileTable end
+  --print(serl(ref))
+  for i=1, #path do
+    --print(serl(ref))
     ref = ref[path[i]]
-	print(serl(ref))
+	--print(serl(ref))
   end
   return ref
 end
@@ -213,7 +223,7 @@ function strLikeDir(input)
 end
 
 function estimateChildCount(inTable)
-  -- I say "estimate" here because inTable may have number AND string keys
+  -- I say "estimate" here because inTable may have number AND string keys because lua is a sadist
   if inTable == {} then return 0, nil
   elseif #inTable > 0 then return #inTable, "number"
   else
@@ -227,25 +237,23 @@ end
 
 function exploreAll()
   --explore(currentPath[currentTab],"main")
-  local validClipboards = {"main","a1","a2","a3","a4"}
-  for i,v in ipairs(validClipboards) do
+  for i,v in ipairs(validTabs) do
     explore(currentPath[v],v)
   end
 end
 
 function explore(path, tab)
   --tab = tab or currentTab
-  --print(path, tab)
-  --print(currentPath[tab])
-  currentTable[tab] = getSubdir(currentFiles[tab], currentPath[tab])
+  print(path, tab)
+  currentTable[tab] = getSubdir(currentFiles[tab], path)
   currentKeys[tab] = {}
-  print(tab, #currentTable[tab], serl(currentKeys))
   local ic = 1
   for k,v in pairs(currentTable[tab]) do
     currentKeys[tab][ic] = k
 	ic = ic + 1
   end
   table.sort(currentKeys[tab])
+  --print(tab, #currentKeys[tab])
 end
 
 function contentDesc(input)
@@ -321,10 +329,9 @@ function drawScreen_imTheMap(tab)
   --for ic,k in ipairs(currentKeys) do
   
   -- draw list of elements
+  --print(tab)
   for ic = mapScrollOfset+1, math.min(#currentKeys[tab], mapScrollOfset + 12) do
     k = currentKeys[tab][ic]
-    print(k)
-	sleep(0.1)
 	local thisItemSelected = (mapSelc == ic)
     local v = currentTable[tab][k]
     local isTable = (type(v) == "table")
@@ -346,9 +353,23 @@ function drawScreen_imTheMap(tab)
   end
   -- tabs at top (leave room for multishell bar)
 	draw.setColor(15,3)
-	draw.write(string.format(" DORA - %15s - main #1 #2 #3 #4  [?] ","fileNameGoesHere"),-1,-1,49)
-	--draw.write(textutils.serializeJSON(inputs), 1, 20)
-	--draw.write("TICK "..tick..' '..ticksSinceInput, 1, 21)
+	
+	draw.write(string.format(" DORA - %15s - main a1 a2 a3 a4  [?] ","fileNameGoesHere"),-1,-1,49)
+	local acc = 26
+	for i,v in ipairs(validTabs) do
+	  if not (auxHasData[v]) then
+	    draw.setColor(7,3)
+		draw.write("====",acc,-1,#v)
+	  else
+	    draw.setColor(15,3)
+	    if v == tab then
+	      draw.setColor(3,15)
+	      draw.write(v,acc,-1)
+	    end
+	  end
+	  acc = acc + #v + 1
+	end
+	
 	draw.setColor(15,3)
 	draw.write(" [Edit] [Add ] [Remv] [Copy] [inSt]",-1,15,49)
   -- edt: alter this entry. option to replace with aux
@@ -357,7 +378,7 @@ function drawScreen_imTheMap(tab)
   -- cpy: copy this entry to an aux
   -- ins: insert an aux or empty dir between this entry and its parent. if using an aux, the shallowest empty list will contain the entry after edit
   -- 
-	draw.write(string.format(" [View]   MODE%8s|TICK%4.4x|TSLI%4.4x","readOnly", tick, ticksSinceInput),-1,16,49)
+	draw.write(string.format(" [View] %4.4s  MODE%9.9s|TICK%4.4x|TSLI%4.4x",tab, "readOnly", tick, ticksSinceInput),-1,16,49)
 end
 
 function drawAnims_imTheMap(tab)
@@ -406,7 +427,7 @@ function main()
 	  if screenMode == 'map' then 
         draw.clear(15)
         drawScreen_imTheMap(currentTab)
-		--drawAnims_imTheMap(currentTab)
+		drawAnims_imTheMap(currentTab)
 	    needRedraw = false
 	  elseif screenMode == 'edit' then
         draw.clear(15)
