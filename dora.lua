@@ -80,90 +80,7 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
   end
 end
 
-
-templates = { -- TODO: move to a separate loadable JSON file and improve format
-  { ["name"] = "noise",
-    ["filters"] = {
-	  "hasAll", {"type","noise","xz_scale","y_scale"}
-	},["export"] = {"%s",{"noise"}}
-  },
-  { ["name"] = "block",
-    ["filters"] = {
-	  "hasAll", {"Name"}
-	},["export"] = {"%s",{"Name"}}
-  },
-  { ["name"] = "maths",
-    ["filters"] = {
-	  "hasAll", {"type","argument1","argument2"}
-	},["export"] = {"%.12s(%.5s, %.5s)",
-	{"type","argument1","argument2"}}
-  },
-  { ["name"] = "math ",
-    ["filters"] = {
-	  "hasAll", {"type","argument"}
-	},["export"] = {"%.12s(%.5s)",
-	{"type","argument"}}
-  },
-  { ["name"] = "yGrad",
-    ["filters"] = {
-	  "hasAll", {"type","from_y","to_y"}
-	},["export"] = { "[%.5s, %.5s] -> [%.5s, %.5s]",
-	  {"from_y","to_y","from_value","to_value"}}
-  },
-  { ["name"] = "clamp",
-    ["filters"] = {
-	  "hasAll", {"type","max","min","input"}
-	},["export"] = {"[%.7s, %.7s]",
-	  {"min","max"}}
-  },
-  { ["name"] = "range",
-    ["filters"] = {
-	  "hasAll", {"type","min_inclusive","max_exclusive","input"}
-	},["export"] = {"%.5s in [%.5s, %.5s), or %.5s",
-	  {"when_in_range","min_inclusive","max_exclusive","when_out_of_range"}
-	}
-  },
-  { ["name"] = "condt",
-    ["filters"] = {
-	  "hasAll", {"type","if_true","then_run"},
-	  "matchAll", {["type"] = "minecraft:condition"}
-	}, ["export"] = {"%s",{"if_true"}}
-  }
-}
-
-
-
 function matchTable(inTable, recurse)
-  -- tries to match a table to one of many "templates"
-  recurse = recurse or false
-  for i_tmp,temp in ipairs(templates) do
-    isMatch = true
-	for i_filt=1, math.floor(#temp.filters/2) do
-	  filtType, filtParam = temp.filters[2*i_filt - 1],temp.filters[2*i_filt]
-	  if filtType == "hasAll" then
-	    for i,v in ipairs(filtParam) do
-		  if inTable[v] == nil then
-		    isMatch = false
-			break
-		  end
-		end
-		if not isMatch then break end
-	  end
-	end
-    if isMatch then
-	  local exportTable = {temp.export[1],{}}
-	  for i,v in ipairs(temp.export[2]) do
-		if type(inTable[v]) == "string" and inTable[v]:sub(1,10) == "minecraft:" then
-		  exportTable[2][i] = inTable[v]:sub(11,-1)
-		else
-		  exportTable[2][i] = inTable[v]
-		end
-		--print(temp.name,textutils.serializeJSON(exportTable))
-		--sleep(2)
-	  end
-	  return true, temp.name, exportTable
-	end
-  end
   return false
 end
 
@@ -235,12 +152,22 @@ function loadJson(path)
   local f, message = fs.open(path,"r")
   if f == nil then
     print("  UNABLE TO FETCH FILE!", message or 'noMessage',"")
+	sleep(2.0)
 	return nil, message or "noFile"
   else
-    print("  SUCCESS!", message or 'noMessage')
-    local contents = textutils.unserializeJSON(f.readAll())
+    print("  Fetch success!", message or 'noMessage')
+    local contents, msg2 = textutils.unserializeJSON(f.readAll())
 	f.close()
-	return contents, 'OK'
+	--print(contents, msg2)
+	if contents == nil then
+	  print("  DECODE FAIL!", msg2)
+	  sleep(2)
+	  return contents, "notJson"
+	else
+	  print("  Decode success!", msg2)
+	  sleep(0.5)
+	  return contents, 'OK'
+	end
   end
 end
 
@@ -256,6 +183,8 @@ else
   fileTable, message = loadJson(defaultPath)
 end
 --textutils.pagedPrint(textutils.serializeJSON(fileTable))
+
+templates = loadJson("dite/prog/templates_worldgen.json")
 
 function getSubdir(path)
   if #path == 0 then return fileTable end

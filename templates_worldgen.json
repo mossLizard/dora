@@ -1,0 +1,49 @@
+{
+  { "name" : "noise",
+    "filters" : {
+	  "hasAll", {"type","noise","xz_scale","y_scale"}
+	},"export" : ["%s","noise"]
+  },
+  { "name" : "block",
+    "filters" : {
+	  "hasAll", {"Name"}
+	},"export" : {"%s","Name"}
+  },
+  { "name" : "maths",
+    "filters" : {
+	  "hasAll", {"type","argument1","argument2"}
+	},"export" : {"%.12s(%.5s, %.5s)",
+	"type","argument1","argument2"}
+  },
+  { "name" : "math ",
+    "filters" : {
+	  "hasAll", {"type","argument"}
+	},"export" : {"%.12s(%.5s)",
+	"type","argument"}
+  },
+  { "name" : "yGrad",
+    "filters" : {
+	  "hasAll", {"type","from_y","to_y"}
+	},"export" : { "[%.5s, %.5s] -> [%.5s, %.5s]",
+	  "from_y","to_y","from_value","to_value"}
+  },
+  { "name" : "clamp",
+    "filters" : {
+	  "hasAll", {"type","max","min","input"}
+	},"export" : {"[%.7s, %.7s]",
+	  "min","max"}
+  },
+  { "name" : "range",
+    "filters" : {
+	  "hasAll", {"type","min_inclusive","max_exclusive","input"}
+	},"export" : {"%.5s in [%.5s, %.5s), or %.5s",
+	  "when_in_range","min_inclusive","max_exclusive","when_out_of_range"
+	}
+  },
+  { "name" : "condt",
+    "filters" : {
+	  "hasAll", {"type","if_true","then_run"},
+	  "matchAll", {"type" : "minecraft:condition"}
+	}, "export" : {"%s","if_true"}
+  }
+}
