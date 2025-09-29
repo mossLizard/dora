@@ -15,10 +15,10 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
-local currentPath = {"noise_router"}
-local currentKeys = {}
-local currentTable = {}
-local currentSubdirs = {}
+local currentPath = {['main'] = "noise_router", ['#1'] = "", ['#2'] = "", ['#3'] = "", ['#4'] = ""}
+local currentKeys = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
+local currentTable = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
+local currentSubdirs = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
 local editState = {['name']='sto',['val']=nil}
 local tableClipboard = {}
 local mapDrawColors = {}
