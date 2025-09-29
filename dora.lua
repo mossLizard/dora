@@ -16,14 +16,15 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
-local currentTab = "a1"
-local validTabs = {"main", "a1","a2","a3","a4"}
+local currentTab = "main"
+--local validTabs = {"main", "a1","a2","a3","a4"}
+local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
 local currentPath = {['main'] = {"noise_router"}, ['a1'] = {"test_subdir"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
 local currentKeys = {}
 local currentTable = {}
 local currentSubdirs = {}
-local currentFiles = {['main'] = {}, ['a1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
-local auxHasData = {['main'] = true, ['a1'] = true}
+local currentFiles = {['main'] = {}, ['1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local auxHasData = {['main'] = true, ['1'] = true}
 local mapDrawColors = {}
 local mapScrollOfset = 0
 local mapSelc = 3
@@ -115,12 +116,13 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 		needRedraw = true
 		trySound("ui.bip_0")
 		elseif my == 1 then -- tab menu
-		  if mx >= 29 and mx <= 32 then -- main tab
+		  if mx >= 30 and mx <= 33 then -- main tab
 		    currentTab = "main"
 			needRedraw = true
 		    trySound("ui.bip_0",1,0.8)
-		  elseif mx >= 34 and mx <= 45 then -- aux tabs
-		    local selcTab = math.floor((mx - 28) / 3)
+		  elseif mx >= 35 and mx <= 45 then -- aux tabs
+		    --local selcTab = math.floor((mx - 28) / 3)
+			local selcTab = math.min(mx - 33,#validTabs)
 			currentTab = validTabs[selcTab]
 			needRedraw = true
 		    trySound("ui.bip_0",1,0.8)
@@ -201,6 +203,9 @@ currentFiles["main"] = fileTable
 
 function getSubdir(sourceTable, path)
   -- read from the given "subdirectory" 
+  if path == nil then
+    return nil
+  end
   print(serl(path))
   ref = sourceTable
   --if #path == 0 then return fileTable end
@@ -245,6 +250,13 @@ end
 function explore(path, tab)
   --tab = tab or currentTab
   print(path, tab)
+  if path == nil or currentTable[tab] == nil then
+    currentPath[tab] = {}
+	currentTable[tab] = {}
+	path = {}
+  end
+  currentFiles[tab] = currentFiles[tab] or {}
+  
   currentTable[tab] = getSubdir(currentFiles[tab], path)
   currentKeys[tab] = {}
   local ic = 1
@@ -354,24 +366,25 @@ function drawScreen_imTheMap(tab)
   -- tabs at top (leave room for multishell bar)
 	draw.setColor(15,3)
 	
-	draw.write(string.format(" DORA - %15s - main a1 a2 a3 a4  [?] ","fileNameGoesHere"),-1,-1,49)
-	local acc = 26
+	draw.write(string.format(" DORA - %15s -- main ==========  [?] ","fileNameGoesHere"),-1,-1,49)
+	local acc = 27
 	for i,v in ipairs(validTabs) do
-	  if not (auxHasData[v]) then
+	  if currentFiles[v] == nil then
 	    draw.setColor(7,3)
 		draw.write("====",acc,-1,#v)
 	  else
 	    draw.setColor(15,3)
 	    if v == tab then
 	      draw.setColor(3,15)
-	      draw.write(v,acc,-1)
 	    end
+	    draw.write(v,acc,-1)
 	  end
-	  acc = acc + #v + 1
+	  acc = acc + #v
+	  if i <= 1 then acc = acc + 1 end
 	end
 	
 	draw.setColor(15,3)
-	draw.write(" [Edit] [Add ] [Remv] [Copy] [inSt]",-1,15,49)
+	draw.write(" [Edit] [Add ] [Set ] [Dele] [Copy] ",-1,15,49)
   -- edt: alter this entry. option to replace with aux
   -- add: new entry in this dir, from primative or aux
   -- rmv: remove this entry. if dir, option to collapse or remove children as well.
@@ -403,12 +416,28 @@ end
 -- if current name matches an element in current directory, we are editing.
 -- on matching name, ask to keep or overwrite or cancel
 -- else, we are adding an element or inserting it
-function drawScreen_editMode()
+function drawMockup_editScreen()
+  draw.setColor(3,15)
+  draw.drawBox(-1,15,49,2)
+  draw.drawBox(-1,-1,49,1)
   draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath[tab]),48),1,0) -- dir name
-  draw.setColor(0,15)
+  draw.write(fitRight(strLikeDir(currentPath[tab]),47),1,0) -- dir name
   
-  draw.write(textutils.serializeJSON(inputs), 1, 20)
+  draw.setColor(8,15)
+  draw.drawBox(16,1,32,14) -- window area
+  
+  draw.setColor(0,7)
+  draw.writeWrapped("|::<::::::::::",16,1,1)
+  draw.write(" EDIT : editing Clipboard 0    ", 17, 2)
+  draw.write("      :                        ", 17, 3)
+  draw.write(" Type : [b] [n] string [t] [!] ", 17, 4)
+  draw.write(" Key  : noMoreLonelyNights     ", 17, 5)
+  draw.write(" Val  : two love stories       ", 17, 10)
+  draw.write(" [Cancel]   [Save]   [Delete]  ", 17, 11)
+  draw.write(" [Copy to...]  [Set from...]   ", 17, 12)
+  draw.setColor(8,7)
+  draw.write(" [Insert from...]  [Collapse]  ", 17, 13)
+  --draw.write(textutils.serializeJSON(inputs), 1, 20)
 end
 
 
@@ -431,7 +460,7 @@ function main()
 	    needRedraw = false
 	  elseif screenMode == 'edit' then
         draw.clear(15)
-	    drawScreen_editMode()
+	    drawMockup_editScreen()
 	    needRedraw = true
 	  end
 	else
