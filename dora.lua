@@ -6,7 +6,7 @@
 local defaultPath = "dite/prog/sample.json"
 local args = {...} --get args
 
-local drawutils = require("../lib/modeZero")
+local drawutils = require("lib/modeZero")
 local draw = drawutils.new(term, 3, 2)
 draw.setPalette(drawutils.palette_traditional)
 
