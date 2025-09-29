@@ -1,12 +1,12 @@
 -- tableDora the tableExplorer!
 -- wrote this because I was tired of trying to manually edit JSON files and I wanted to view and edit it in a format that I somewhat recognize
--- there are acutal programs for this out there Im sure but oh well.
+-- there are actual programs for this out there Im sure but oh well.
 
 --"dite/data/minecraft/worldgen/noise_settings/overworld.json"
 local defaultPath = "dite/prog/sample.json"
 local args = {...} --get args
 
-local drawutils = require("lib/modeZero")
+local drawutils = require("lib/drawUtils")
 local draw = drawutils.new(term, 3, 2)
 draw.setPalette(drawutils.palette_traditional)
 
