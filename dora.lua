@@ -15,11 +15,11 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
+local currentTab = "main"
 local currentPath = {['main'] = "noise_router", ['#1'] = "", ['#2'] = "", ['#3'] = "", ['#4'] = ""}
 local currentKeys = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
 local currentTable = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
 local currentSubdirs = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
-local editState = {['name']='sto',['val']=nil}
 local tableClipboard = {}
 local mapDrawColors = {}
 local mapScrollOfset = 0
@@ -36,8 +36,8 @@ end
 tick = 0
 ticksSinceInput = 0
 function interval()
-  --tick = tick + 1
-  tick = (tick + 1) % (2^16)
+  tick = tick + 1
+  --tick = (tick + 1) % (2^16)
   ticksSinceInput = ticksSinceInput + 1
   sleep(0.05)
 end
@@ -81,7 +81,7 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
 end
 
 
-templates = {
+templates = { -- TODO: move to a separate loadable JSON file and improve format
   { ["name"] = "noise",
     ["filters"] = {
 	  "hasAll", {"type","noise","xz_scale","y_scale"}
@@ -234,10 +234,10 @@ end
 function loadJson(path)
   local f, message = fs.open(path,"r")
   if f == nil then
-    print("  UNABLE TO FETCH FILE! (", message or '',")")
+    print("  UNABLE TO FETCH FILE!", message or 'noMessage',"")
 	return nil, message or "noFile"
   else
-    print("  SUCCESS! (", message or '',")")
+    print("  SUCCESS!", message or 'noMessage')
     local contents = textutils.unserializeJSON(f.readAll())
 	f.close()
 	return contents, 'OK'
