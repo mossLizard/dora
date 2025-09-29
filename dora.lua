@@ -5,6 +5,7 @@
 --"dite/data/minecraft/worldgen/noise_settings/overworld.json"
 local defaultPath = "dite/prog/sample.json"
 local args = {...} --get args
+serl = textutils.serializeJSON
 
 local drawutils = require("lib/drawUtils")
 local draw = drawutils.new(term, 3, 2)
@@ -15,12 +16,12 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
-local currentTab = "main"
-local currentPath = {['main'] = "noise_router", ['#1'] = "", ['#2'] = "", ['#3'] = "", ['#4'] = ""}
-local currentKeys = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
-local currentTable = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
-local currentSubdirs = {['main'] = {}, ['#1'] = {}, ['#2'] = {}, ['#3'] = {}, ['#4'] = {}}
-local tableClipboard = {}
+local currentTab = "a1"
+local currentPath = {['main'] = {"noise_router"}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentKeys = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentTable = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentSubdirs = {['main'] = {}, ['a1'] = {}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentFiles = {['main'] = {}, ['a1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c"}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
 local mapDrawColors = {}
 local mapScrollOfset = 0
 local mapSelc = 3
@@ -80,15 +81,15 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
   end
 end
 
-function matchTable(inTable, recurse)
+function matchTable(inTable, recurse) -- STUB
   return false
 end
 
 function trySubdir(dirKey)
-  if currentTable[dirKey] == nil then return false, "doesNotExist"
-  elseif type(currentTable[dirKey]) ~= "table" then return false, "notATable"
+  if currentTable[currentTab][dirKey] == nil then return false, "doesNotExist"
+  elseif type(currentTable[currentTab][dirKey]) ~= "table" then return false, "notATable"
   else
-	currentPath[#currentPath+1] = dirKey
+	currentPath[currentTab][#currentPath+1] = dirKey
 	needExplore = true
     return true
   end
@@ -183,15 +184,21 @@ else
   fileTable, message = loadJson(defaultPath)
 end
 --textutils.pagedPrint(textutils.serializeJSON(fileTable))
+currentFiles["main"] = fileTable
 
-templates = loadJson("dite/prog/templates_worldgen.json")
+--templates = loadJson("dite/prog/templates_worldgen.json")
 
-function getSubdir(path)
-  if #path == 0 then return fileTable end
+function getSubdir(sourceTable, path)
   -- read from the given "subdirectory" 
-  ref = fileTable[path[1]]
+  print(serl(path))
+  ref = sourceTable
+  if #path == 0 then return fileTable end
+  --print(serl(currentFiles[tab]), serl(path))
+  ref = sourceTable[path[1]]
+  --ref = sourceTable[path[1]]
   for i=2, #path do
     ref = ref[path[i]]
+	print(serl(ref))
   end
   return ref
 end
@@ -218,18 +225,31 @@ function estimateChildCount(inTable)
   end
 end
 
-function explore(path)
-  currentTable = getSubdir(currentPath)
-  currentKeys = {}
+function exploreAll()
+  --explore(currentPath[currentTab],"main")
+  local validClipboards = {"main","a1","a2","a3","a4"}
+  for i,v in ipairs(validClipboards) do
+    explore(currentPath[v],v)
+  end
+end
+
+function explore(path, tab)
+  --tab = tab or currentTab
+  --print(path, tab)
+  --print(currentPath[tab])
+  currentTable[tab] = getSubdir(currentFiles[tab], currentPath[tab])
+  currentKeys[tab] = {}
+  print(tab, #currentTable[tab], serl(currentKeys))
   local ic = 1
-  for k,v in pairs(currentTable) do
-    currentKeys[ic] = k
+  for k,v in pairs(currentTable[tab]) do
+    currentKeys[tab][ic] = k
 	ic = ic + 1
   end
-  table.sort(currentKeys)
+  table.sort(currentKeys[tab])
 end
 
 function contentDesc(input)
+  -- display element info
   local toDisplay = "ERROR ???"
   local toColor = {15,0}
   bgAlternate = 15
@@ -264,29 +284,30 @@ end
 
 -- drawing functions
 
-function drawScreen_imTheMap()
+function drawScreen_imTheMap(tab)
   -- main draw function for the single directory view
   -- shows a list of "subdirectories" and options for editing / navigating
   --local thisDir = currentTable
+  tab = tab or currentTab
   draw.setColor(0,15)
-  if #currentPath == 0 then
+  if #currentPath[tab] == 0 then
     draw.setColor(7,15)
     draw.write("..             | root",1,1) -- root has no parent
   else
     draw.write("..             : (up)",1,1)
   end
   draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath),47),1,0) -- dir name
+  draw.write(fitRight(strLikeDir(currentPath[tab]),47),1,0) -- dir name
   local scrollBarText = string.char(127):rep(12) 
-  if(#currentKeys <= 12 and mapScrollOfset == 0) then -- all elements shown
+  if(#currentKeys[tab] <= 12 and mapScrollOfset == 0) then -- all elements shown
     draw.setColor(7,15)
-  elseif (#currentKeys > mapScrollOfset+12 and mapScrollOfset > 0) then -- elements before AND after shown
+  elseif (#currentKeys[tab] > mapScrollOfset+12 and mapScrollOfset > 0) then -- elements before AND after shown
     draw.setColor(15,0)
 	scrollBarText = string.format("^^^ %.4d vvv",mapScrollOfset)
-  elseif (#currentKeys <= mapScrollOfset+12 and mapScrollOfset > 0) then -- elements before shown
+  elseif (#currentKeys[tab] <= mapScrollOfset+12 and mapScrollOfset > 0) then -- elements before shown
     draw.setColor(15,0)
 	scrollBarText = string.format("^^^ %.4d |||",mapScrollOfset)
-  elseif (#currentKeys > mapScrollOfset+12 and mapScrollOfset == 0) then -- elements after shown
+  elseif (#currentKeys[tab] > mapScrollOfset+12 and mapScrollOfset == 0) then -- elements after shown
     draw.setColor(15,0)
 	scrollBarText = string.format("||| %.4d vvv",mapScrollOfset)
   else
@@ -298,10 +319,14 @@ function drawScreen_imTheMap()
   mapDrawColors = {}
   
   --for ic,k in ipairs(currentKeys) do
-  for ic = mapScrollOfset+1, math.min(#currentKeys, mapScrollOfset + 12) do
-    k = currentKeys[ic]
+  
+  -- draw list of elements
+  for ic = mapScrollOfset+1, math.min(#currentKeys[tab], mapScrollOfset + 12) do
+    k = currentKeys[tab][ic]
+    print(k)
+	sleep(0.1)
 	local thisItemSelected = (mapSelc == ic)
-    local v = currentTable[k]
+    local v = currentTable[tab][k]
     local isTable = (type(v) == "table")
 	local isSubdir = false
 	local xOfset = 0
@@ -335,14 +360,15 @@ function drawScreen_imTheMap()
 	draw.write(string.format(" [View]   MODE%8s|TICK%4.4x|TSLI%4.4x","readOnly", tick, ticksSinceInput),-1,16,49)
 end
 
-function drawAnims_imTheMap()
+function drawAnims_imTheMap(tab)
+  tab = tab or currentTab
   draw.setColor(15,0)
-  if #strLikeDir(currentPath) >= 47 then
-    draw.write(scrollText(strLikeDir(currentPath),46, tick / 4, true),1,0)
+  if #strLikeDir(currentPath[tab]) >= 47 then
+    draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
     --draw.write(fitRight(strLikeDir(currentPath),47),1,0)
   end
   if mapSelc > 0 and (mapSelc-mapScrollOfset <= 12) then
-    thisName = currentKeys[mapSelc-mapScrollOfset]
+    thisName = currentKeys[tab][mapSelc-mapScrollOfset]
   if thisName == nil then
 	  draw.write("!!ERROR NIL NAME!!",0,1+mapSelc-mapScrollOfset,16)
 	elseif #thisName > 16 then
@@ -358,7 +384,7 @@ end
 -- else, we are adding an element or inserting it
 function drawScreen_editMode()
   draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath),48),1,0) -- dir name
+  draw.write(fitRight(strLikeDir(currentPath[tab]),48),1,0) -- dir name
   draw.setColor(0,15)
   
   draw.write(textutils.serializeJSON(inputs), 1, 20)
@@ -371,15 +397,16 @@ function main()
     parallel.waitForAny(interval, getInputs)
 	wrangleInputs()
 	if needExplore then
-	  explore(currentPath)
+	  --explore(currentPath[currentTab],"main")
+	  exploreAll()
 	  needExplore = false
 	end
 	if needRedraw then
     ticksSinceInput = 0
 	  if screenMode == 'map' then 
         draw.clear(15)
-        drawScreen_imTheMap()
-		drawAnims_imTheMap()
+        drawScreen_imTheMap(currentTab)
+		--drawAnims_imTheMap(currentTab)
 	    needRedraw = false
 	  elseif screenMode == 'edit' then
         draw.clear(15)
