@@ -16,10 +16,17 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
+local editorMode = "add"
+local editorState = {
+                      ["options"] = {}, --{name, function to run, extra param} func(param, tab, path)
+					  ["e"] = 0
+                    }
 local currentTab = "main"
 --local validTabs = {"main", "a1","a2","a3","a4"}
 local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
 local currentPath = {['main'] = {"noise_router"}, ['a1'] = {"test_subdir"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+
+
 local currentKeys = {}
 local currentTable = {}
 local currentSubdirs = {}
@@ -227,6 +234,36 @@ function strLikeDir(input)
   return sto
 end
 
+function climb(tabel, path)
+  -- returns the sub-table or element at the end of the path
+  if #path == 1 then
+    return tabel[path[1]]
+  else
+    np = {}
+	for i=2,#path do
+	  np[i-1] = path[i]
+	end
+	return climb(tabel[path[1]], np)
+  end
+end
+
+function plant(tabel, path, val)
+  -- sets the value at the end of the path to the given
+  if #path == 1 then
+    tabel[path[1]] = val
+	return tabel
+  else
+    np = {}
+	for i=2,#path do
+	  np[i-1] = path[i]
+	end
+	tabel = plant(tabel[path[1]], np, val)
+	return tabel
+  end
+end
+
+--plant(currentFiles, {"main","noise"}, 27.4)
+
 function estimateChildCount(inTable)
   -- I say "estimate" here because inTable may have number AND string keys because lua is a sadist
   if inTable == {} then return 0, nil
@@ -268,6 +305,15 @@ function explore(path, tab)
   --print(tab, #currentKeys[tab])
 end
 
+-- -- -- EDIT MODE FUNCTIONS -- -- --
+
+
+
+
+
+
+-- -- -- DRAWING FUNCTIONS -- -- --
+
 function contentDesc(input)
   -- display element info
   local toDisplay = "ERROR ???"
@@ -300,9 +346,6 @@ function contentDesc(input)
   end
   return toDisplay, toColor
 end
-
-
--- drawing functions
 
 function drawScreen_imTheMap(tab)
   -- main draw function for the single directory view
@@ -366,7 +409,7 @@ function drawScreen_imTheMap(tab)
   -- tabs at top (leave room for multishell bar)
 	draw.setColor(15,3)
 	
-	draw.write(string.format(" DORA - %15s -- main ==========  [?] ","fileNameGoesHere"),-1,-1,49)
+	draw.write(string.format(" DORA - %15s - [main|==========] [?] ","fileNameGoesHere"),-1,-1,49)
 	local acc = 27
 	for i,v in ipairs(validTabs) do
 	  if currentFiles[v] == nil then
