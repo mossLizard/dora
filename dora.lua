@@ -16,25 +16,31 @@ local needRedraw = true
 local doLoop = true
 local inputs = {}
 local screenMode = "map"
-local editorMode = "add"
-local editorPath = {}
-local editorState = {
-                      ["options"] = {}, --{name, function to run, extra param} func(param, tab, path)
-					  ["e"] = 0
-                    }
-local currentTab = "main"
---local validTabs = {"main", "a1","a2","a3","a4"}
+local editorMode = "none"
+local currentTab = "main" -- board selected
 local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
-local currentPath = {['main'] = {"noise_router"}, ['0'] = {}, ['1'] = {"test_subdir"}, ['2'] = {}, ['3'] = {}}
-
-
-local currentKeys = {}
-local selcTable = {} -- table being displayed
-local tempTable = {} -- for copy / paste operations
-local currentTable = {}
-local currentSubdirs = {}
+local currentPath = {['main'] = {"noise_router"}, ['0'] = {}, ['1'] = {"test_subdir"}, ['2'] = {}, ['3'] = {}} -- path of each board
 local currentFiles = {['main'] = {}, ['0'] = {}, ['1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['2'] = {}, ['3'] = {}, ['4'] = {}}
-local auxHasData = {['main'] = true, ['1'] = true}
+local currentTable = {}
+local currentKeys = {}
+local tabColor = {}
+
+function populateCurrents()
+  for i,tab in ipairs(validTabs) do
+    currentFiles[tab] = currentFiles[tab] or {}
+    currentPath[tab] = currentPath[tab] or {}
+	currentTable[tab] = currentTable[tab] or {}
+	currentKeys[tab] = currentKeys[tab] or {}
+	--tabColor[tab] = 1+i 
+	tabColor[tab] = 11 -- 3 is light blue
+  end
+end
+populateCurrents()
+
+local editorTable = {} -- selected item in the editor
+local editorPath = {}  -- path to selected item, including table select
+local tempTable = {}   -- for copy / paste operations
+local currentSubdirs = {}
 local mapDrawColors = {}
 local mapScrollOfset = 0
 local mapSelc = 3
@@ -126,13 +132,13 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 		needRedraw = true
 		trySound("ui.bip_0")
 		elseif my == 1 then -- tab menu
-		  if mx >= 30 and mx <= 33 then -- main tab
+		  if mx >= 33 and mx <= 38 then -- main tab
 		    currentTab = "main"
 			needRedraw = true
 		    trySound("ui.bip_0",1,0.8)
-		  elseif mx >= 35 and mx <= 45 then -- aux tabs
+		  elseif mx >= 39 and mx <= 48 then -- aux tabs
 		    --local selcTab = math.floor((mx - 28) / 3)
-			local selcTab = math.min(mx - 33,#validTabs)
+			local selcTab = math.min(mx - 37,#validTabs)
 			currentTab = validTabs[selcTab]
 			needRedraw = true
 		    trySound("ui.bip_0",1,0.8)
@@ -157,7 +163,7 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
             needExplore = true
 		  end
 		elseif my == 17 then -- edit mode (TEMPORARY!!!!)
-		  screenMode = 'edit'
+		  setEditorState("copy")
 		end
 	  end
 	elseif screenMode == 'edit' then
@@ -170,6 +176,15 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 end
 
 
+function setEditorState(newState)
+  if newState == nil or newState == 'none' then
+    editorPath = {}
+	editorTable = {}
+	editorMode = 'none'
+	screenMode = 'map'
+  end
+  
+end
 
 
 function loadJson(path)
@@ -194,7 +209,6 @@ function loadJson(path)
 	end
   end
 end
-
 
 
 local fileTable = {}
@@ -228,12 +242,13 @@ function getSubdir(sourceTable, path)
   return ref
 end
 
-function strLikeDir(input)
+function strLikeDir(input, prefix)
   -- prints the path as if it were an actual file path
   local sto = '/'
   for i,v in ipairs(input) do
     sto = sto .. v .. '/'
   end
+  if prefix ~= nil then sto = prefix..sto end
   return sto
 end
 
@@ -300,8 +315,8 @@ function exploreAll()
 end
 
 function explore(path, tab)
-  currentTable[tab] = currentTable[tab] or {}
-  currentFiles[tab] = currentFiles[tab] or {}
+  --currentTable[tab] = currentTable[tab] or {}
+  --currentFiles[tab] = currentFiles[tab] or {}
   climbResult = climb(currentFiles[tab], path)
   if climbResult == nil then
     currentFiles[tab] = {}
@@ -389,14 +404,14 @@ function drawScreen_imTheMap(tab)
   --local thisDir = currentTable
   tab = tab or currentTab
   draw.setColor(0,15)
-  if #currentPath[tab] == 0 then
+  if #currentPath[tab] == 0 then -- draw up button
     draw.setColor(7,15)
     draw.write("..             | root",1,1) -- root has no parent
   else
     draw.write("..             : (up)",1,1)
   end
   draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath[tab]),47),1,0) -- dir name
+  draw.write(fitRight(strLikeDir(currentPath[tab],tab),47),1,0) -- draw dir name
   local scrollBarText = string.char(127):rep(12) 
   if(#currentKeys[tab] <= 12 and mapScrollOfset == 0) then -- all elements shown
     draw.setColor(7,15)
@@ -420,7 +435,6 @@ function drawScreen_imTheMap(tab)
   --for ic,k in ipairs(currentKeys) do
   
   -- draw list of elements
-  --print(tab)
   for ic = mapScrollOfset+1, math.min(#currentKeys[tab], mapScrollOfset + 12) do
     k = currentKeys[tab][ic]
 	local thisItemSelected = (mapSelc == ic)
@@ -428,7 +442,7 @@ function drawScreen_imTheMap(tab)
     local isTable = (type(v) == "table")
 	local isSubdir = false
 	local xOfset = 0
-	if thisItemSelected then xOfset = -1 end
+	if thisItemSelected then xOfset = -1 end -- selected element is shifted over
 	--local bgAlternate = 7+(ic%2)*8
 	local bgAlternate = 15
 	local thisItemDisplay, thisItemColors = contentDesc(v)
@@ -445,16 +459,17 @@ function drawScreen_imTheMap(tab)
   -- tabs at top (leave room for multishell bar)
 	draw.setColor(15,3)
 	
-	draw.write(string.format(" DORA - %15s - [main|==========] [?] ","fileNameGoesHere"),-1,-1,49)
-	local acc = 27
+	--draw.write(string.format(" DORA  %15s[+] [main|==========] [?] ","fileNameGoesHere"),-1,-1,49)
+	draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
+	local acc = 31
 	for i,v in ipairs(validTabs) do
 	  if currentFiles[v] == nil then
 	    draw.setColor(7,3)
-		draw.write("====",acc,-1,#v)
+		draw.write("????",acc,-1,#v)
 	  else
-	    draw.setColor(15,3)
+	    draw.setColor(15,tabColor[v])
 	    if v == tab then
-	      draw.setColor(3,15)
+	      draw.setColor(tabColor[v],15)
 	    end
 	    draw.write(v,acc,-1)
 	  end
