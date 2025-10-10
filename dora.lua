@@ -61,7 +61,6 @@ function interval()
   ticksSinceInput = ticksSinceInput + 1
   sleep(0.05)
 end
-
 local spkr = peripheral.wrap('spkr')
 local hasSpkr = spkr ~= nil
 local function trySound(soundName, volume, pitch)
@@ -73,7 +72,6 @@ local function trySound(soundName, volume, pitch)
     return nil
   end
 end
-
 local function fitLeft(text, width, padding)
   padding = ' ' or padding
   return string.sub(text .. string.rep(padding, width), 1, width)
@@ -99,6 +97,19 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
     return string.sub(strip, ofset, ofset + width)
   end
 end
+local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
+  for i,bttn in ipairs(buttonList) do
+    --print(bttn)
+	--sleep(0.1)
+    draw.setColor(bttn[3][1],bttn[3][2])
+    draw.write(bttn[1],bttn[2][1],bttn[2][2])
+  end
+end
+local function checkButtons(buttonList, mouseClickEvent)
+  
+end
+
+
 
 function matchTable(inTable, recurse) -- STUB
   return false
@@ -182,6 +193,11 @@ function setEditorState(newState)
 	editorTable = {}
 	editorMode = 'none'
 	screenMode = 'map'
+  else
+    editorPath = climb(currentPath[currentTab])
+	editorTable = climb(currentPath[currentTab])
+	editorMode = 'copy'
+	screenMode = 'edit'
   end
   
 end
@@ -292,7 +308,7 @@ function plant(tabel, path, val)
   end
 end
 
-plant(currentFiles, {"main","noise"}, {["beep"] = 27.4, ["boop"] = false})
+--plant(currentFiles, {"main","noise"}, {["beep"] = 27.4, ["boop"] = false})
 
 function estimateChildCount(inTable)
   -- I say "estimate" here because inTable may have number AND string keys because lua is a sadist
@@ -522,7 +538,7 @@ function drawMockup_editScreen()
   
   draw.setColor(0,7)
   draw.writeWrapped("|::<::::::::::",16,1,1)
-  draw.write(" EDIT : editing Clipboard 0    ", 17, 2)
+  draw.write(" COPY : editing Clipboard 0    ", 17, 2)
   draw.write("      :                        ", 17, 3)
   draw.write(" Type : [b] [n] string [t] [!] ", 17, 4)
   draw.write(" Key  : noMoreLonelyNights     ", 17, 5)
@@ -532,8 +548,9 @@ function drawMockup_editScreen()
   draw.setColor(8,7)
   draw.write(" [Insert from...]  [Collapse]  ", 17, 13)
   --draw.write(textutils.serializeJSON(inputs), 1, 20)
+  bttnList = {{"beep",{12,2},{0,15}}, {"boop",{32,3},{7,2}}}
+  drawButtons(bttnList)
 end
-
 
 
 function main()
@@ -561,7 +578,7 @@ function main()
 	  if screenMode == 'map' then
         drawAnims_imTheMap()
 	  elseif screenMode == 'edit' then
-	    --pass
+	    drawMockup_editScreen()
 	  end
 	end
   end
