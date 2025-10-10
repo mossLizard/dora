@@ -31,8 +31,8 @@ function populateCurrents()
     currentPath[tab] = currentPath[tab] or {}
 	currentTable[tab] = currentTable[tab] or {}
 	currentKeys[tab] = currentKeys[tab] or {}
-	--tabColor[tab] = 1+i 
-	tabColor[tab] = 11 -- 3 is light blue
+	tabColor[tab] = 1+i 
+	--tabColor[tab] = 11 -- 3 is light blue
   end
 end
 populateCurrents()
@@ -97,16 +97,30 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
     return string.sub(strip, ofset, ofset + width)
   end
 end
-local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
+local function drawButtons(buttonList, flipColors) -- {name,{x,y},{tx,bg},func,argument2}
+  flipColors = flipColors or {}
   for i,bttn in ipairs(buttonList) do
     --print(bttn)
 	--sleep(0.1)
     draw.setColor(bttn[3][1],bttn[3][2])
+	for ii,vv in ipairs(flipColors) do
+	  if bttn[1] == vv then draw.setColor(bttn[3][2],bttn[3][1]) end
+	end
     draw.write(bttn[1],bttn[2][1],bttn[2][2])
   end
 end
+
 local function checkButtons(buttonList, mouseClickEvent)
-  
+  -- eventType, button, x, y
+  mx, my = mouseClickEvent[3] - draw.basex, mouseClickEvent[4] - draw.basey
+  for i,v in ipairs(buttonList) do
+    bttn = buttonList[#buttonList + 1 - i] -- check in reverse order
+    if my == bttn[2][2] then -- same line
+      if mx >= bttn[2][1] and mx < bttn[2][1] + #(bttn[1]) then
+	    error("PRESSED!! "..bttn[1])
+	  end
+	end
+  end
 end
 
 
@@ -130,6 +144,11 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
   for i,event in ipairs(inputs) do
     if event[1] == "key" or event[1] == "mouse_click" or event[1] == "mouse_drag" or event[1] == "mouse_up" then
 	  needRedraw = true
+	end
+	
+	-- I need to redo this entire thing :(
+	if event[1] == "mouse_click" then
+	  checkButtons(buttonTables.menuBar, event)
 	end
 	if screenMode == "map" then
 	  if event[1] == "mouse_click" then
@@ -381,6 +400,44 @@ end
 
 -- -- -- DRAWING FUNCTIONS -- -- --
 
+buttonTables = { -- predefining this so I don't have to keep building it
+  ["menuBar"] = { 
+    {" DORA - ...... ...... ...... ", {0,-1}, {15,3}},
+    {"[File]", {8,-1}, {15,3}}, 
+	{"[View]", {15,-1}, {15,3}}, 
+	{"[Help]", {22,-1}, {15,3}} 
+  },
+    ["editButtons"] = { 
+    {"[Copy]", {0,16}, {15,3}}, 
+	{"[Add]", {15,16}, {15,3}}, 
+	{"[Set]", {23,16}, {15,3}} 
+  }
+}
+
+function handleClickedTab(tabName)
+  if screenMode == "map" then
+    setEditorState(tabName)
+  end
+end
+
+function drawMenuBar()
+  draw.setColor(15,3)
+  --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
+  tabButtons = {
+    {" [main|0123456789] ", {29,-1}, {15,3}},
+    {"main", {31,-1}, {15,tabColor["main"]},handleClickedTab}, 
+	{"|0", {35,-1}, {15,tabColor["0"]},handleClickedTab,{"0"}}
+  } -- I have to generate this on-site because tab colors change
+  for i,v in ipairs(validTabs) do
+    if i >= 3 then -- manually ignore first 2 :(
+	  tabButtons[i] = {v, {34+i, -1}, {15, tabColor[v]}}
+	end
+  end
+  drawButtons(buttonTables.menuBar)
+  drawButtons(buttonTables.editButtons)
+  drawButtons(tabButtons, {currentTab, "|"..currentTab})
+end
+
 function contentDesc(input)
   -- display element info
   local toDisplay = "ERROR ???"
@@ -472,36 +529,7 @@ function drawScreen_imTheMap(tab)
 	draw.write(k,1+xOfset,1+ic-mapScrollOfset,16-xOfset)
 	draw.write(": "..tostring(thisItemDisplay),16,1+ic-mapScrollOfset,32)
   end
-  -- tabs at top (leave room for multishell bar)
-	draw.setColor(15,3)
-	
-	--draw.write(string.format(" DORA  %15s[+] [main|==========] [?] ","fileNameGoesHere"),-1,-1,49)
-	draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
-	local acc = 31
-	for i,v in ipairs(validTabs) do
-	  if currentFiles[v] == nil then
-	    draw.setColor(7,3)
-		draw.write("????",acc,-1,#v)
-	  else
-	    draw.setColor(15,tabColor[v])
-	    if v == tab then
-	      draw.setColor(tabColor[v],15)
-	    end
-	    draw.write(v,acc,-1)
-	  end
-	  acc = acc + #v
-	  if i <= 1 then acc = acc + 1 end
-	end
-	
-	draw.setColor(15,3)
-	draw.write(" [Edit] [Add ] [Set ] [Dele] [Copy] ",-1,15,49)
-  -- edt: alter this entry. option to replace with aux
-  -- add: new entry in this dir, from primative or aux
-  -- rmv: remove this entry. if dir, option to collapse or remove children as well.
-  -- cpy: copy this entry to an aux
-  -- ins: insert an aux or empty dir between this entry and its parent. if using an aux, the shallowest empty list will contain the entry after edit
-  -- 
-	draw.write(string.format(" [View] %4.4s  MODE%9.9s|TICK%4.4x|TSLI%4.4x",tab, "readOnly", tick, ticksSinceInput),-1,16,49)
+  drawMenuBar()
 end
 
 function drawAnims_imTheMap(tab)
