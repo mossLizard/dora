@@ -17,6 +17,7 @@ local doLoop = true
 local inputs = {}
 local screenMode = "map"
 local editorMode = "add"
+local editorPath = {}
 local editorState = {
                       ["options"] = {}, --{name, function to run, extra param} func(param, tab, path)
 					  ["e"] = 0
@@ -24,13 +25,15 @@ local editorState = {
 local currentTab = "main"
 --local validTabs = {"main", "a1","a2","a3","a4"}
 local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
-local currentPath = {['main'] = {"noise_router"}, ['a1'] = {"test_subdir"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentPath = {['main'] = {"noise_router"}, ['0'] = {}, ['1'] = {"test_subdir"}, ['2'] = {}, ['3'] = {}}
 
 
 local currentKeys = {}
+local selcTable = {} -- table being displayed
+local tempTable = {} -- for copy / paste operations
 local currentTable = {}
 local currentSubdirs = {}
-local currentFiles = {['main'] = {}, ['1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['a2'] = {}, ['a3'] = {}, ['a4'] = {}}
+local currentFiles = {['main'] = {}, ['0'] = {}, ['1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['2'] = {}, ['3'] = {}, ['4'] = {}}
 local auxHasData = {['main'] = true, ['1'] = true}
 local mapDrawColors = {}
 local mapScrollOfset = 0
@@ -236,9 +239,15 @@ end
 
 function climb(tabel, path)
   -- returns the sub-table or element at the end of the path
-  if #path == 1 then
+  -- named because I pictured it as climbing up a tree of tables
+  if path == nil or #path < 1 then
+    return tabel
+  elseif type(path) ~= "table" then
+    error("Could not climb; path is not a table!")
+  elseif #path == 1 then
     return tabel[path[1]]
   else
+    tabel[path[1]] = tabel[path[1]] or {}
     np = {}
 	for i=2,#path do
 	  np[i-1] = path[i]
@@ -248,8 +257,14 @@ function climb(tabel, path)
 end
 
 function plant(tabel, path, val)
-  -- sets the value at the end of the path to the given
-  if #path == 1 then
+  -- sets the value at the end of the path to the given value
+  -- like "planting" a flag at the top of a tree. Or in place of a branch.
+  if path == nil then
+    tabel = val
+    return tabel
+  elseif type(path) ~= "table" then
+    error("Could not plant value; path is not a table!")
+  elseif path == nil or #path <= 1 then
     tabel[path[1]] = val
 	return tabel
   else
@@ -262,7 +277,7 @@ function plant(tabel, path, val)
   end
 end
 
---plant(currentFiles, {"main","noise"}, 27.4)
+plant(currentFiles, {"main","noise"}, {["beep"] = 27.4, ["boop"] = false})
 
 function estimateChildCount(inTable)
   -- I say "estimate" here because inTable may have number AND string keys because lua is a sadist
@@ -285,16 +300,37 @@ function exploreAll()
 end
 
 function explore(path, tab)
+  currentTable[tab] = currentTable[tab] or {}
+  currentFiles[tab] = currentFiles[tab] or {}
+  climbResult = climb(currentFiles[tab], path)
+  if climbResult == nil then
+    currentFiles[tab] = {}
+    plant(currentFiles[tab], path, {})
+    climbResult = climb(currentFiles[tab], path)
+  end
+  currentTable[tab] = climbResult
+  -- currentTable[tab] should now be updated
+  currentKeys[tab] = {}
+  local ic = 1
+  for k,v in pairs(currentTable[tab]) do
+    currentKeys[tab][ic] = k
+	ic = ic + 1
+  end
+  table.sort(currentKeys[tab])
+  
+end
+
+function explore_old(path, tab)
   --tab = tab or currentTab
-  print(path, tab)
+  print(tab, serl(path), currentTable[tab])
   if path == nil or currentTable[tab] == nil then
     currentPath[tab] = {}
 	currentTable[tab] = {}
 	path = {}
   end
   currentFiles[tab] = currentFiles[tab] or {}
-  
-  currentTable[tab] = getSubdir(currentFiles[tab], path)
+  --currentTable[tab] = getSubdir(currentFiles[tab], path) 
+  currentTable[tab] = climb(currentFiles[tab], path)
   currentKeys[tab] = {}
   local ic = 1
   for k,v in pairs(currentTable[tab]) do
