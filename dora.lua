@@ -102,9 +102,11 @@ local function drawSingleButton(bttn)
   if bttn.name == nil or bttn.pos == nil then
     return false
   end
-  thisColor = {15,0}
-  thisSize = {1,#bttn.name}
-  
+  thisColor = bttn.color or {15,0}
+  thisSize = bttn.size or {1,#bttn.name}
+  draw.setColor(thisColor)
+  draw.write(bttn.name, bttn.pos[1], bttn.pos[2])
+  return true
 end
 
 local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
@@ -119,14 +121,15 @@ end
 
 local function checkButtons(buttonList, mouseClickEvent)
   -- goes through the list of buttons and finds the last one clicked by this mouse event. Returns true if a button was pressed, as well as the name of the button pressed. If the button had a function and parameters attached, the function is run and the results are returned as third value.
-  -- eventType, button, x, y
+  --print()
+  --print(serl(mouseClickEvent))
   mx, my = mouseClickEvent[3] - draw.basex, mouseClickEvent[4] - draw.basey
   for i,v in ipairs(buttonList) do
     bttn = buttonList[#buttonList + 1 - i] -- check in reverse order
-	print(serl(bttn))
-	thisSize = (bttn.size or {1,#bttn.name})
-    if my >= bttn.pos[2] and my < bttn.pos[2] + thisSize[2] then -- same line
-      if mx >= bttn.pos[1] and mx < bttn.pos[1] + thisSize[1] then
+	thisSize = (bttn.size or {#bttn.name,1})
+	buttonBox = {bttn.pos[1], bttn.pos[1] + thisSize[1], bttn.pos[2], bttn.pos[2] + thisSize[2]}
+    if true then -- same line
+      if mx >= buttonBox[1] and mx < buttonBox[2] and my >= buttonBox[3] and my < buttonBox[4] then
 	    buttonReturnName = bttn.returnName or bttn.name
 	    --error("PRESSED!! "..bttn[1])
 		if bttn.func == nil then
@@ -135,10 +138,10 @@ local function checkButtons(buttonList, mouseClickEvent)
 		  return true, bttn.name, nil
 		else
 		  if bttn.params == nil then
-		    result = bttn.func(bttn[1],mx,my) -- pass name & coords if no params definde
+		    result = bttn.func(bttn.name,mx,my) -- pass name & coords if no params definde
 		    return true, bttn.name, result
 		  end
-		    result = bttn.func(table.unpack(bttn[5]))
+		    result = bttn.func(table.unpack(bttn.params))
 		    return true, bttn.name, result
 		end
 	  end
@@ -172,18 +175,23 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 	
 	-- I need to redo this entire thing :(
 	if event[1] == "mouse_click" then
-	  --checkButtons(buttonTables.tablets, event)
+	  checkButtons(buttonTables.tablets, event)
 	  checkButtons(buttonTables.menuBar, event)
+	  checkButtons(buttonTables.itemList, event)
 	end
   end
 end
 
-function handleClickedTab(tabName)
+function handle_clickTab(tabName)
   --error("setTab"..tabName)
   if screenMode == "map" then
     --setEditorState(tabName)
 	currentTab = tabName
   end
+end
+
+function handle_clickItemList(indexOnScreen)
+  error("clickList "..tostring(indexOnScreen))
 end
 
 function setEditorState(newState)
@@ -364,20 +372,33 @@ buttonTables = { -- predefining this so I don't have to keep building it
 	{["name"] = "[Help]", ["pos"] = {22,-1}, ["color"] = {15,3}} 
   },
     ["editButtons"] = { 
-    {"[Copy]", {0,16}, {15,3}}, 
-	{"[Add]", {15,16}, {15,3}}, 
+    {["name"] = "[Copy]", {0,16}, {15,3}}, 
+	{["name"] = "[Add]", {15,16}, {15,3}}, 
 	{"[Set]", {23,16}, {15,3}} 
   },
   ["itemList"] = {
-    {"-0123456789ABCD : 0123456789ABCDEF0123456789ABCD", {0,1},{14,15}}
+    {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList}
   },
   ["tablets"] = {} --dynamically generated
 }
 
-function flipTabColors(tab)
+for i=2, 13 do
+  buttonTables.itemList[i] = {
+	["name"] =  "item_" .. tostring(i-1),
+	["pos"] = {1,i},
+	["size"] = {48,1},
+	["func"] = handle_clickItemList,
+	["param"] = i-1
+  }
+end
+
+function flipTabColors(tab, buttonList)
   -- manually check main and 0
-  if tab == "0" or "main" then
+  
+  if tab == "main" then
+    buttonList[1].color = {buttonList[1].color[2],buttonList[1].color[1]}
   elseif tab == "0" then
+    buttonList[2].color = {buttonList[1].color[2],buttonList[1].color[1]}
   else
     tabColors[tab] = {tabColors[tab][2],tabColors[tab][1]}
   end
@@ -388,20 +409,25 @@ function drawMenuBar()
   draw.setColor(15,3)
   --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
   local tabButtons = {
-    {"[----|----------]", {29,-1}, {15,3}},
-    {"main", {30,-1}, {15,11}, handleClickedTab,{"main"}}, 
-	{"|", {34,-1}, {15, tabColor["0"]},handleClickedTab,{"0"}}
+    {["name"] = "[----|----------]", ["pos"] = {29,-1}, ["color"] = {15,3}},
+    {["name"] = "main", ["pos"] = {30,-1}, ["color"] = {15,13}, ["func"] = handle_clickTab, ["params"] = {"main"}}, 
+	{["name"] = "|0", ["pos"] = {34,-1}, ["color"] = tabColor["0"], ["func"] = handle_clickTab, ["params"] = {"0"}}
   } -- I have to generate this on-site because tab colors change
   for i,v in ipairs(validTabs) do
-    if i >= 2 then -- manually ignore first 2 :(
-	  tabButtons[i+2] = {v, {33+i, -1}, {15, tabColor[v]},handleClickedTab}
+    if i >= 3 then -- manually ignore first 3 :(
+	  tabButtons[i+1] = {
+		["name"] = v, 
+		["pos"] = {33+i, -1}, 
+		["color"] = tabColor[v],
+		["func"] = handle_clickTab
+	}
 	end
   end
   buttonTables.tablets = tabButtons
   drawButtons(buttonTables.menuBar)
   --drawButtons(buttonTables.editButtons)
-  drawButtons(tabButtons, {currentTab, "|"..currentTab})
-  drawButtons(buttonTables.itemList, {})
+  drawButtons(tabButtons)
+  --drawButtons(buttonTables.itemList)
 end
 
 function contentDesc(input)
