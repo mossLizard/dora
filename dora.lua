@@ -6,6 +6,7 @@
 local defaultPath = "dite/prog/sample.json"
 local args = {...} --get args
 serl = textutils.serializeJSON
+chr = string.char
 
 local drawutils = require("lib/drawUtils")
 local draw = drawutils.new(term, 3, 2)
@@ -17,13 +18,13 @@ local doLoop = true
 local inputs = {}
 local screenMode = "map"
 local editorMode = "none"
-local currentTab = "main" -- board selected
-local validTabs = {"main", "clpA","clpB","clpC"}
-local currentPath = {['main'] = {"noise_router"}, ['clpA'] = {}, ['clpB'] = {"test_subdir"}, ['clpC'] = {}} -- path of each board
-local currentFiles = {['main'] = {}, ['clpA'] = {["test_val"] = 27.4, ["test_list"] = {0,1,2,3,4,5}, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['clpB'] = {}, ['clpC'] = {}}
+local currentTab = "A" -- board selected
+local validTabs = {"A","B","C"}
+local currentPath = {['A'] = {"noise_router"}, ['B'] = {}, ['C'] = {"test_subdir"}} -- path of each board
+local currentFiles = {['A'] = {}, ['B'] = {["test_val"] = 27.4, ["test_list"] = {0,1,2,3,4,5}, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['C'] = {}}
 local currentTable = {}
 local currentKeys = {}
-local tabColors = {}
+local tabColors = {['A'] = {15,9}, ['B'] = {15,4}, ['C'] = {15,2}}
 local pathNameIsLong = false
 
 function populateCurrents()
@@ -32,7 +33,7 @@ function populateCurrents()
     currentPath[tab] = currentPath[tab] or {}
 	currentTable[tab] = currentTable[tab] or {}
 	currentKeys[tab] = currentKeys[tab] or {}
-	tabColors[tab] = {15,2+i} 
+	--tabColors[tab] = {15,2+i} 
 	--tabColor[tab] = 11 -- 3 is light blue
   end
 end
@@ -176,7 +177,6 @@ function checkButtons(buttonList, mouseClickEvent)
 end
 
 
-
 function matchTable(inTable, recurse) -- STUB
   return false
 end
@@ -204,7 +204,7 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 	    checkButtons(buttonTables.tablets, event)
 	    checkButtons(buttonTables.menuBar, event)
 	    checkButtons(buttonTables.itemList, event)
-	    checkButtons(buttonTables.primitiveEdit, event)
+	    checkButtons(buttonTables.actions, event)
 	  elseif screenMode == "edit" then
 	    didClick = checkButtons(buttonTables.itemEdit, event)
 	    didClick = didClick or checkButtons(buttonTables.itemEditSetType, event)
@@ -255,7 +255,7 @@ function handle_clickItemList(indexOnScreen)
   end
 end
 
-function handle_primitiveTool(toolType)
+function handle_actionButton(buttonName)
    
 end
 
@@ -319,7 +319,7 @@ else
   fileTable, message = loadJson(defaultPath)
 end
 --textutils.pagedPrint(textutils.serializeJSON(fileTable))
-currentFiles["main"] = fileTable
+currentFiles["A"] = fileTable
 
 --templates = loadJson("dite/prog/templates_worldgen.json")
 
@@ -431,41 +431,22 @@ function explore(path, tab)
   table.sort(currentKeys[tab])
 end
 
--- -- -- EDIT MODE FUNCTIONS -- -- --
-
-
-
-
 
 
 -- -- -- DRAWING FUNCTIONS -- -- --
 
 buttonTables = { -- predefining this so I don't have to keep building it
   ["menuBar"] = { 
-    {["name"] = " V0.1 * ...... ...... ...... ", ["pos"] = {-1,-1}, ["color"] = {15,3}},
-    {["name"] = "[File]", ["pos"] = {7,-1}, ["color"] = {15,3}}, 
-	{["name"] = "[View]", ["pos"] = {14,-1}, ["color"] = {15,3}}, 
-	{["name"] = "[Help]", ["pos"] = {21,-1}, ["color"] = {15,3}} 
+    {["name"] = " DORA V0.1  | ---- ---- ---- ---- ---- ---- ---- ", ["pos"] = {-1,-1}, ["color"] = {15,3}},
+    {["name"] = "test", ["pos"] = {13, -1}, ["color"] = {15,2}}
   },
     ["actions"] = { 
-    {["name"] = "[Add]",  ["pos"] = {0, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"add"}}, 
-	-- Add an item to the current layer. provide key, then provide immediate val ("str hello") or path ("B/const/pi")
-    {["name"] = "[Copy]", ["pos"] = {6, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"copy"}}, 
-	-- Copy selected element to another location. Provide path ("B/tmp/one"); will prompt key if ending with / ("B/tmp/")
-	{["name"] = "[Key]",  ["pos"] = {15,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setKey"}}, 
-	-- Quickly overwrite the key of selected element. Provide str or num immediates ONLY!
-	{["name"] = "[Val]",  ["pos"] = {21,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setVal"}},
-	-- Quickly overwrite the value of selected element. Provide immediate or path.
-	{["name"] = "[Inst]", ["pos"] = {28,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"insert"}},
-	-- Insert layers between current layer and selected element. Providing a path will add ALL layers between it and the root.
-	-- inserting "B/tmp/one/" at "A/beep/(str test)" will result in "A/beep/tmp/one/(str test)"
-	{["name"] = "[Chop]", ["pos"] = {35,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"chop"}}
-	-- Remove this table element and reparent its children. 
-	--Chopping "A/beep/tmp" will move "A/beep/tmp/*" to "A/beep/*"
-	-- THIS is the function I am writing Dora for! THIS RIGHT HERE!!! it will make editing SO much easier!
-	
-	-- ./ is replaced with the current layer on entry
-	-- ../, .../ etc are replaced with the parent layer, grandparent layer, etc.
+    {["name"] = " Add ", ["pos"] = {16, 14}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"add"}}, 
+    {["name"] = " Copy", ["pos"] = {16, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"copy"}}, 
+	{["name"] = " Key ", ["pos"] = {22, 14}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setKey"}}, 
+	{["name"] = " Val ", ["pos"] = {22, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setVal"}},
+	{["name"] = " Inst", ["pos"] = {28, 14}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"insert"}},
+	{["name"] = " Chop", ["pos"] = {28, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"chop"}}
   },
   ["itemList"] = {
     {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {-1}}
@@ -495,46 +476,43 @@ for i=2, 13 do
   }
 end
 
-function flipTabColors(tab, buttonList)
-  -- manually check main and 0
-  
-  if tab == "main" then
-    buttonList[1].color = {buttonList[1].color[2],buttonList[1].color[1]}
-  elseif tab == "0" then
-    buttonList[2].color = {buttonList[1].color[2],buttonList[1].color[1]}
-  else
-    tabColors[tab] = {tabColors[tab][2],tabColors[tab][1]}
-  end
+function drawActionButtons()
+  drawButtons(buttonTables.actions)
 end
 
-function drawPrimitiveEdit()
-  drawButtons(buttonTables.primitiveEdit)
+function drawTabs()
+  local tabButtons = {} -- I have to generate this on-site because tab colors change
+  tabOfset = {-5,13}
+  for i,v in ipairs(validTabs) do
+	tabButtons[2*i - 1] = {
+	    ["name"] = "  "..v.."  ",
+		["pos"] = {tabOfset[1]+(5*i), tabOfset[2]+1}, 
+		["color"] = tabColors[v],
+		["func"] = handle_clickTab,
+		["params"] = {v}
+	}
+	tabButtons[2*i] = {
+	    ["name"] = " --- ",
+		["pos"] = {tabOfset[1]+(5*i), tabOfset[2]+2}, 
+		["color"] = tabColors[v],
+		["func"] = handle_clickTab,
+		["params"] = {v}
+	}
+	if v == currentTab then
+	  tabButtons[2*i - 1]["color"] = {tabColors[v][2],tabColors[v][1]}
+	  tabButtons[2*i]["color"] = {tabColors[v][2],tabColors[v][1]}
+	end
+  end
+  buttonTables.tablets = tabButtons
+  drawButtons(tabButtons)
 end
 
 
 function drawMenuBar()
   draw.setColor(15,3)
   --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
-  local tabButtons = {
-    {["name"] = "[---- ---- ---- ----]", ["pos"] = {28,-1}, ["color"] = {15,3}}
-  } -- I have to generate this on-site because tab colors change
-  tabOfset = 0
-  for i,v in ipairs(validTabs) do
-	tabButtons[i+1] = {
-	    ["name"] = v, 
-		["pos"] = {29+tabOfset, -1}, 
-		["color"] = tabColors[v],
-		["func"] = handle_clickTab
-	}
-	tabOfset = tabOfset + #v + 1
-	if v == currentTab then
-	  tabButtons[i+1]["color"] = {tabColors[v][2],tabColors[v][1]}
-	end
-  end
-  buttonTables.tablets = tabButtons
   drawButtons(buttonTables.menuBar)
   --drawButtons(buttonTables.editButtons)
-  drawButtons(tabButtons)
   --drawButtons(buttonTables.itemList)
 end
 
@@ -589,8 +567,7 @@ function drawScreen_imTheMap(tab)
   else
     draw.write("..             : (up)",1,1)
   end
-  draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath[tab],tab),47),1,0) -- draw dir name
+  drawCurrentPathDir(tab)
   local scrollBarText = string.char(127):rep(12) 
   if(#currentKeys[tab] <= 12 and mapScrollOfset == 0) then -- all elements shown
     draw.setColor(7,15)
@@ -636,7 +613,8 @@ function drawScreen_imTheMap(tab)
 	draw.write(": "..tostring(thisItemDisplay),16,1+ic-mapScrollOfset,32)
   end
   drawMenuBar()
-  drawPrimitiveEdit()
+  drawActionButtons()
+  drawTabs()
 end
 
 
@@ -646,10 +624,9 @@ end
 -- else, we are adding an element or inserting it
 function drawScreen_itemEdit(tab)
   tab = tab or currentTab
+  drawCurrentPathDir(tab)
   draw.setColor(15,0)
   draw.write(fitRight(strLikeDir(currentPath[tab],tab),47),1,0) -- dir name
- 
-  bttnList = {{"beep",{12,2},{0,15}}, {"boop",{32,3},{7,2}}}
   drawButtons(buttonTables.itemEdit)
   drawButtons(buttonTables.itemEditSetType)
   local thisItemDisplay, thisItemColors = contentDesc(editorTableVal)
@@ -665,13 +642,22 @@ function drawScreen_itemEdit(tab)
 	 " "..thisItemDisplay:sub(1,3).." -> bol | num | str | tab | lst ", 
 	 "     -> nil (delete) | cpy (copy) "},
 	 {14, 14, 1, 4})
+  drawMenuBar()
+  drawTabs()
+end
+
+function drawCurrentPathDir(tab)
+  tab = tab or currentTab
+  draw.setColor(15,0)
+  draw.write(scrollText(" "..tab..strLikeDir(currentPath[tab]),49, tick / 4, false),-1,0)
+  
 end
 
 function drawAnims_imTheMap(tab)
   tab = tab or currentTab
   draw.setColor(15,0)
   if pathNameIsLong then
-    draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
+    drawCurrentPathDir(tab)
     --draw.write(fitRight(strLikeDir(currentPath),47),1,0)
   end
   if mapSelc > 0 and (mapSelc-mapScrollOfset <= 12) then
