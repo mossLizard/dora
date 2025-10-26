@@ -184,14 +184,42 @@ end
 
 function handle_clickTab(tabName)
   --error("setTab"..tabName)
-  if screenMode == "map" then
+  if screenMode == "map" then -- set tab
     --setEditorState(tabName)
 	currentTab = tabName
+	mapSelc = 0
   end
 end
 
 function handle_clickItemList(indexOnScreen)
-  error("clickList "..tostring(indexOnScreen))
+  if screenMode == "map" then
+    selcItem = indexOnScreen-mapScrollOfset
+    if indexOnScreen == 0 then
+      mapSelc = 0
+	  mapScrollOfset = 0
+	  if #currentPath[currentTab] > 0 then
+	    currentPath[currentTab][#currentPath[currentTab]] = nil
+		needRedraw = true
+		needExplore = true
+	  end
+	elseif(selcItem > 0 and selcItem <= #currentKeys[currentTab]) then -- is valid item?
+	  if selcItem == mapSelc then -- double clicked?
+	    trySubdir(currentKeys[currentTab][selcItem],currentTab)
+		mapSelc = 0
+		mapScrollOfset = 0
+		needRedraw = true
+		needExplore = true
+	  else
+	    mapSelc = selcItem
+	  end
+	end
+  else
+    error("undefined behaviour on clicking list when in mode "..tostring(screenMode) .."!")
+  end
+end
+
+function handle_primitiveTool(toolType)
+   
 end
 
 function setEditorState(newState)
@@ -377,18 +405,18 @@ buttonTables = { -- predefining this so I don't have to keep building it
 	{"[Set]", {23,16}, {15,3}} 
   },
   ["itemList"] = {
-    {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList}
+    {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {0}}
   },
   ["tablets"] = {} --dynamically generated
 }
 
 for i=2, 13 do
   buttonTables.itemList[i] = {
-	["name"] =  "item_" .. tostring(i-1),
+	["name"] =  i-1,
 	["pos"] = {1,i},
 	["size"] = {48,1},
 	["func"] = handle_clickItemList,
-	["param"] = i-1
+	["params"] = {i-1}
   }
 end
 
