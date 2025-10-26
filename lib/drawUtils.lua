@@ -136,6 +136,7 @@ function drawutils.write(text, x, y, width)
   -- prints the given text at (x,y). Provide a width to automatically trim / add space.
   x = x or 0
   y = y or 0
+  text = tostring(text)
   width = width or #text
   drawutils.cursorPos(x,y)
   drawutils.screen.write(fitLeft(text,width))
