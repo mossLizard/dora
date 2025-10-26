@@ -31,7 +31,7 @@ function populateCurrents()
     currentPath[tab] = currentPath[tab] or {}
 	currentTable[tab] = currentTable[tab] or {}
 	currentKeys[tab] = currentKeys[tab] or {}
-	tabColor[tab] = 1+i 
+	tabColor[tab] = {15,1+i} 
 	--tabColor[tab] = 11 -- 3 is light blue
   end
 end
@@ -97,30 +97,54 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
     return string.sub(strip, ofset, ofset + width)
   end
 end
-local function drawButtons(buttonList, flipColors) -- {name,{x,y},{tx,bg},func,argument2}
-  flipColors = flipColors or {}
+
+local function drawSingleButton(bttn)
+  if bttn.name == nil or bttn.pos == nil then
+    return false
+  end
+  thisColor = {15,0}
+  thisSize = {1,#bttn.name}
+  
+end
+
+local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
   for i,bttn in ipairs(buttonList) do
+    drawSingleButton(bttn)
     --print(bttn)
 	--sleep(0.1)
-    draw.setColor(bttn[3][1],bttn[3][2])
-	for ii,vv in ipairs(flipColors) do
-	  if bttn[1] == vv then draw.setColor(bttn[3][2],bttn[3][1]) end
-	end
-    draw.write(bttn[1],bttn[2][1],bttn[2][2])
+    --draw.setColor(bttn[3][1],bttn[3][2])
+    --draw.write(bttn[1],bttn[2][1],bttn[2][2])
   end
 end
 
 local function checkButtons(buttonList, mouseClickEvent)
+  -- goes through the list of buttons and finds the last one clicked by this mouse event. Returns true if a button was pressed, as well as the name of the button pressed. If the button had a function and parameters attached, the function is run and the results are returned as third value.
   -- eventType, button, x, y
   mx, my = mouseClickEvent[3] - draw.basex, mouseClickEvent[4] - draw.basey
   for i,v in ipairs(buttonList) do
     bttn = buttonList[#buttonList + 1 - i] -- check in reverse order
-    if my == bttn[2][2] then -- same line
-      if mx >= bttn[2][1] and mx < bttn[2][1] + #(bttn[1]) then
-	    error("PRESSED!! "..bttn[1])
+	print(serl(bttn))
+	thisSize = (bttn.size or {1,#bttn.name})
+    if my >= bttn.pos[2] and my < bttn.pos[2] + thisSize[2] then -- same line
+      if mx >= bttn.pos[1] and mx < bttn.pos[1] + thisSize[1] then
+	    buttonReturnName = bttn.returnName or bttn.name
+	    --error("PRESSED!! "..bttn[1])
+		if bttn.func == nil then
+		  --print(serl(bttn))
+		  --don't run the function because there is no function.
+		  return true, bttn.name, nil
+		else
+		  if bttn.params == nil then
+		    result = bttn.func(bttn[1],mx,my) -- pass name & coords if no params definde
+		    return true, bttn.name, result
+		  end
+		    result = bttn.func(table.unpack(bttn[5]))
+		    return true, bttn.name, result
+		end
 	  end
 	end
   end
+  return false
 end
 
 
@@ -148,63 +172,19 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 	
 	-- I need to redo this entire thing :(
 	if event[1] == "mouse_click" then
+	  --checkButtons(buttonTables.tablets, event)
 	  checkButtons(buttonTables.menuBar, event)
-	end
-	if screenMode == "map" then
-	  if event[1] == "mouse_click" then
-	    local mb, mx, my = event[2],event[3],event[4]
-		if mx == 2 then --scrollbar
-		  if my >=3 and my <= 7 then
-		    mapScrollOfset = math.max(mapScrollOfset-1,0)
-		  elseif my >=11 and my <= 15 then
-		    mapScrollOfset = math.min(mapScrollOfset+1,math.max(1,#currentKeys[tab]-11))
-		  end
-		needRedraw = true
-		trySound("ui.bip_0")
-		elseif my == 1 then -- tab menu
-		  if mx >= 33 and mx <= 38 then -- main tab
-		    currentTab = "main"
-			needRedraw = true
-		    trySound("ui.bip_0",1,0.8)
-		  elseif mx >= 39 and mx <= 48 then -- aux tabs
-		    --local selcTab = math.floor((mx - 28) / 3)
-			local selcTab = math.min(mx - 37,#validTabs)
-			currentTab = validTabs[selcTab]
-			needRedraw = true
-		    trySound("ui.bip_0",1,0.8)
-		  end
-		elseif mx >= 3 and my >= 3 and my <= 15 then --clicked a directory
-	      selcItem = my-3+mapScrollOfset
-	      if (selcItem > 0 and selcItem <= #currentKeys[tab]) then
-		    if selcItem == mapSelc then
-	          trySubdir(currentKeys[tab][selcItem],tab)
-		      trySound("ui.bip_0")
-		      mapSelc = 0
-		      mapScrollOfset = 0
-		    else
-		      mapSelc = selcItem
-		      trySound("ui.bip_0")
-		    end
-	      else--if selcItem <= 0 and selcItem >= -1 and #currentPath > 0 then
-	        currentPath[tab][#currentPath[tab]] = nil
-		    trySound("ui.bip_0")
-			mapSelc = 0
-			mapScrollOfset = 0
-            needExplore = true
-		  end
-		elseif my == 17 then -- edit mode (TEMPORARY!!!!)
-		  setEditorState("copy")
-		end
-	  end
-	elseif screenMode == 'edit' then
-	  if event[1] == "mouse_click" then
-	    local mb, mx, my = event[2],event[3],event[4]
-		screenMode = 'map'
-	  end
 	end
   end
 end
 
+function handleClickedTab(tabName)
+  --error("setTab"..tabName)
+  if screenMode == "map" then
+    --setEditorState(tabName)
+	currentTab = tabName
+  end
+end
 
 function setEditorState(newState)
   if newState == nil or newState == 'none' then
@@ -350,8 +330,6 @@ function exploreAll()
 end
 
 function explore(path, tab)
-  --currentTable[tab] = currentTable[tab] or {}
-  --currentFiles[tab] = currentFiles[tab] or {}
   climbResult = climb(currentFiles[tab], path)
   if climbResult == nil then
     currentFiles[tab] = {}
@@ -359,7 +337,7 @@ function explore(path, tab)
     climbResult = climb(currentFiles[tab], path)
   end
   currentTable[tab] = climbResult
-  -- currentTable[tab] should now be updated
+  -- currentTable[tab] SHOULD now be updated
   currentKeys[tab] = {}
   local ic = 1
   for k,v in pairs(currentTable[tab]) do
@@ -367,28 +345,6 @@ function explore(path, tab)
 	ic = ic + 1
   end
   table.sort(currentKeys[tab])
-  
-end
-
-function explore_old(path, tab)
-  --tab = tab or currentTab
-  print(tab, serl(path), currentTable[tab])
-  if path == nil or currentTable[tab] == nil then
-    currentPath[tab] = {}
-	currentTable[tab] = {}
-	path = {}
-  end
-  currentFiles[tab] = currentFiles[tab] or {}
-  --currentTable[tab] = getSubdir(currentFiles[tab], path) 
-  currentTable[tab] = climb(currentFiles[tab], path)
-  currentKeys[tab] = {}
-  local ic = 1
-  for k,v in pairs(currentTable[tab]) do
-    currentKeys[tab][ic] = k
-	ic = ic + 1
-  end
-  table.sort(currentKeys[tab])
-  --print(tab, #currentKeys[tab])
 end
 
 -- -- -- EDIT MODE FUNCTIONS -- -- --
@@ -402,40 +358,50 @@ end
 
 buttonTables = { -- predefining this so I don't have to keep building it
   ["menuBar"] = { 
-    {" DORA - ...... ...... ...... ", {0,-1}, {15,3}},
-    {"[File]", {8,-1}, {15,3}}, 
-	{"[View]", {15,-1}, {15,3}}, 
-	{"[Help]", {22,-1}, {15,3}} 
+    {["name"] = " DORA - ...... ...... ...... ", ["pos"] = {0,-1}, ["color"] = {15,3}},
+    {["name"] = "[File]", ["pos"] = {8,-1}, ["color"] = {15,3}}, 
+	{["name"] = "[View]", ["pos"] = {15,-1}, ["color"] = {15,3}}, 
+	{["name"] = "[Help]", ["pos"] = {22,-1}, ["color"] = {15,3}} 
   },
     ["editButtons"] = { 
     {"[Copy]", {0,16}, {15,3}}, 
 	{"[Add]", {15,16}, {15,3}}, 
 	{"[Set]", {23,16}, {15,3}} 
-  }
+  },
+  ["itemList"] = {
+    {"-0123456789ABCD : 0123456789ABCDEF0123456789ABCD", {0,1},{14,15}}
+  },
+  ["tablets"] = {} --dynamically generated
 }
 
-function handleClickedTab(tabName)
-  if screenMode == "map" then
-    setEditorState(tabName)
+function flipTabColors(tab)
+  -- manually check main and 0
+  if tab == "0" or "main" then
+  elseif tab == "0" then
+  else
+    tabColors[tab] = {tabColors[tab][2],tabColors[tab][1]}
   end
 end
+
 
 function drawMenuBar()
   draw.setColor(15,3)
   --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
-  tabButtons = {
-    {" [main|0123456789] ", {29,-1}, {15,3}},
-    {"main", {31,-1}, {15,tabColor["main"]},handleClickedTab}, 
-	{"|0", {35,-1}, {15,tabColor["0"]},handleClickedTab,{"0"}}
+  local tabButtons = {
+    {"[----|----------]", {29,-1}, {15,3}},
+    {"main", {30,-1}, {15,11}, handleClickedTab,{"main"}}, 
+	{"|", {34,-1}, {15, tabColor["0"]},handleClickedTab,{"0"}}
   } -- I have to generate this on-site because tab colors change
   for i,v in ipairs(validTabs) do
-    if i >= 3 then -- manually ignore first 2 :(
-	  tabButtons[i] = {v, {34+i, -1}, {15, tabColor[v]}}
+    if i >= 2 then -- manually ignore first 2 :(
+	  tabButtons[i+2] = {v, {33+i, -1}, {15, tabColor[v]},handleClickedTab}
 	end
   end
+  buttonTables.tablets = tabButtons
   drawButtons(buttonTables.menuBar)
-  drawButtons(buttonTables.editButtons)
+  --drawButtons(buttonTables.editButtons)
   drawButtons(tabButtons, {currentTab, "|"..currentTab})
+  drawButtons(buttonTables.itemList, {})
 end
 
 function contentDesc(input)
