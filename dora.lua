@@ -20,10 +20,11 @@ local editorMode = "none"
 local currentTab = "main" -- board selected
 local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
 local currentPath = {['main'] = {"noise_router"}, ['0'] = {}, ['1'] = {"test_subdir"}, ['2'] = {}, ['3'] = {}} -- path of each board
-local currentFiles = {['main'] = {}, ['0'] = {}, ['1'] = {["test_val"] = 27.4, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['2'] = {}, ['3'] = {}, ['4'] = {}}
+local currentFiles = {['main'] = {}, ['0'] = {}, ['1'] = {["test_val"] = 27.4, ["test_list"] = {0,1,2,3,4,5}, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['2'] = {}, ['3'] = {}, ['4'] = {}}
 local currentTable = {}
 local currentKeys = {}
-local tabColor = {}
+local tabColors = {}
+local pathNameIsLong = false
 
 function populateCurrents()
   for i,tab in ipairs(validTabs) do
@@ -31,7 +32,7 @@ function populateCurrents()
     currentPath[tab] = currentPath[tab] or {}
 	currentTable[tab] = currentTable[tab] or {}
 	currentKeys[tab] = currentKeys[tab] or {}
-	tabColor[tab] = {15,1+i} 
+	tabColors[tab] = {15,1+i} 
 	--tabColor[tab] = 11 -- 3 is light blue
   end
 end
@@ -175,9 +176,18 @@ function wrangleInputs() -- "handle" felt like too gentle a word for what I am d
 	
 	-- I need to redo this entire thing :(
 	if event[1] == "mouse_click" then
-	  checkButtons(buttonTables.tablets, event)
-	  checkButtons(buttonTables.menuBar, event)
-	  checkButtons(buttonTables.itemList, event)
+	  if screenMode == "map" then
+	    checkButtons(buttonTables.tablets, event)
+	    checkButtons(buttonTables.menuBar, event)
+	    checkButtons(buttonTables.itemList, event)
+	    checkButtons(buttonTables.primitiveEdit, event)
+	  elseif screenMode == "edit" then
+	    didClick = checkButtons(buttonTables.itemEdit, event)
+	    didClick = didClick or checkButtons(buttonTables.itemEditSetType, event)
+	    if not didClick then 
+		  checkButtons(buttonTables.itemEditSecret, event)
+		end
+	  end
 	end
   end
 end
@@ -194,7 +204,7 @@ end
 function handle_clickItemList(indexOnScreen)
   if screenMode == "map" then
     selcItem = indexOnScreen-mapScrollOfset
-    if indexOnScreen == 0 then
+    if indexOnScreen < 1 then
       mapSelc = 0
 	  mapScrollOfset = 0
 	  if #currentPath[currentTab] > 0 then
@@ -223,17 +233,27 @@ function handle_primitiveTool(toolType)
 end
 
 function setEditorState(newState)
-  if newState == nil or newState == 'none' then
-    editorPath = {}
-	editorTable = {}
-	editorMode = 'none'
-	screenMode = 'map'
+  if newState == "edit" then
+    editorPath = currentPath[currentTab]
+	editorTableKey = currentKeys[currentTab][mapSelc]
+	--print(serl(editorPath), editorTableKey)
+	editorTable = climb(currentFiles[currentTab],editorPath)
+	editorTableVal = editorTable[editorTableKey]
+	editorMode = "none"
+	screenMode = "edit"
+  elseif newState == "map" then
+    editorPath = nil
+	editorTable = nil
+	editorMode = nil
+	screenMode = "map"
   else
     editorPath = climb(currentPath[currentTab])
 	editorTable = climb(currentPath[currentTab])
-	editorMode = 'copy'
-	screenMode = 'edit'
+	editorMode = nil
+	screenMode = "map"
   end
+  --print(screenMode)
+  --sleep(1)
   
 end
 
@@ -363,6 +383,7 @@ function exploreAll()
   for i,v in ipairs(validTabs) do
     explore(currentPath[v],v)
   end
+  pathNameIsLong = #strLikeDir(currentPath[currentTab]) >= 47
 end
 
 function explore(path, tab)
@@ -399,14 +420,27 @@ buttonTables = { -- predefining this so I don't have to keep building it
 	{["name"] = "[View]", ["pos"] = {15,-1}, ["color"] = {15,3}}, 
 	{["name"] = "[Help]", ["pos"] = {22,-1}, ["color"] = {15,3}} 
   },
-    ["editButtons"] = { 
-    {["name"] = "[Copy]", {0,16}, {15,3}}, 
-	{["name"] = "[Add]", {15,16}, {15,3}}, 
-	{"[Set]", {23,16}, {15,3}} 
+    ["primitiveEdit"] = { 
+    {["name"] = "[Copy]", ["pos"] = {0,15}, ["color"] = {15,3}}, 
+    {["name"] = "[Set]", ["pos"] = {7,15}, ["color"] = {15,3}}, 
+	{["name"] = "[Add]", ["pos"] = {13,15}, ["color"] = {15,3}}, 
+	{["name"] = "[Edit]", ["pos"] = {19,15}, ["color"] = {15,3}, ["func"] = setEditorState, ["params"] = {"edit"}}
   },
   ["itemList"] = {
-    {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {0}}
+    {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {-1}}
   },
+  ["itemEdit"] = {
+	{["name"] = "Key  :", ["pos"] = {3,2}},
+	{["name"] = "Value:", ["pos"] = {3,4}}
+  },
+  ["itemEditSetType"] = {
+    {["name"] = "bol", ["pos"] = {4,3}},
+	{["name"] = "num", ["pos"] = {8,3}},
+	{["name"] = "str", ["pos"] = {12,3}},
+	{["name"] = "tab", ["pos"] = {16,3}},
+	{["name"] = "nil", ["pos"] = {20,3}}
+  },
+  ["itemEditSecret"] = {{["name"] = "exit", ["pos"] = {0,0}, ["size"] = {48,16}, ["func"] = setEditorState, ["params"] = {"map"}}},
   ["tablets"] = {} --dynamically generated
 }
 
@@ -432,21 +466,25 @@ function flipTabColors(tab, buttonList)
   end
 end
 
+function drawPrimitiveEdit()
+  drawButtons(buttonTables.primitiveEdit)
+end
+
 
 function drawMenuBar()
   draw.setColor(15,3)
   --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
   local tabButtons = {
-    {["name"] = "[----|----------]", ["pos"] = {29,-1}, ["color"] = {15,3}},
+    {["name"] = "[----|----------]  ", ["pos"] = {29,-1}, ["color"] = {15,3}},
     {["name"] = "main", ["pos"] = {30,-1}, ["color"] = {15,13}, ["func"] = handle_clickTab, ["params"] = {"main"}}, 
-	{["name"] = "|0", ["pos"] = {34,-1}, ["color"] = tabColor["0"], ["func"] = handle_clickTab, ["params"] = {"0"}}
+	{["name"] = "|0", ["pos"] = {34,-1}, ["color"] = tabColors["0"], ["func"] = handle_clickTab, ["params"] = {"0"}}
   } -- I have to generate this on-site because tab colors change
   for i,v in ipairs(validTabs) do
     if i >= 3 then -- manually ignore first 3 :(
 	  tabButtons[i+1] = {
 		["name"] = v, 
 		["pos"] = {33+i, -1}, 
-		["color"] = tabColor[v],
+		["color"] = tabColors[v],
 		["func"] = handle_clickTab
 	}
 	end
@@ -463,29 +501,35 @@ function contentDesc(input)
   local toDisplay = "ERROR ???"
   local toColor = {15,0}
   bgAlternate = 15
-  if type(input) == "table" then
+  if input == nil then
+    return "nil"
+  elseif type(input) == "table" then
+    toDisplay = "tab ? children"
     local childCount, childType, childPrint = estimateChildCount(input)
 	if childCount == 0 then
 	  toColor = {8,bgAlternate}
-	  toDisplay = "table empty"
+	  toDisplay = "tab empty"
 	else
 	  isTemplate = {matchTable(input)}
       if isTemplate[1] then
 	    toColor = {4,bgAlternate}
 		toDisplay = string.format(isTemplate[2] .. " "..isTemplate[3][1], table.unpack(isTemplate[3][2]))
+	  elseif childType == "number" then
+	    toColor = {9,bgAlternate}
+	    toDisplay = ("lst "..childCount.." items")
 	  else
 	    toColor = {11,bgAlternate}
-	    toDisplay = ("table "..childCount.." subdirs")
+	    toDisplay = ("tab "..childCount.." children")
 	  end
 	end
   elseif type(input) == "string" then
-	toDisplay = input
+	toDisplay = 'str ' .. input
 	toColor = {14,bgAlternate}
   elseif type(input) == "number" then
-	toDisplay = 'value '..tostring(input)
-	toColor = {6,bgAlternate}
+	toDisplay = 'num '..tostring(input)
+	toColor = {4,bgAlternate}
   elseif type(input) == "boolean" then
-	toDisplay = 'bool  '..tostring(input)
+	toDisplay = 'bol  '..tostring(input)
 	toColor = {13,bgAlternate}
   end
   return toDisplay, toColor
@@ -496,7 +540,7 @@ function drawScreen_imTheMap(tab)
   -- shows a list of "subdirectories" and options for editing / navigating
   --local thisDir = currentTable
   tab = tab or currentTab
-  draw.setColor(0,15)
+  draw.setColor(8,15)
   if #currentPath[tab] == 0 then -- draw up button
     draw.setColor(7,15)
     draw.write("..             | root",1,1) -- root has no parent
@@ -550,17 +594,46 @@ function drawScreen_imTheMap(tab)
 	draw.write(": "..tostring(thisItemDisplay),16,1+ic-mapScrollOfset,32)
   end
   drawMenuBar()
+  drawPrimitiveEdit()
+end
+
+
+
+-- if current name matches an element in current directory, we are editing.
+-- on matching name, ask to keep or overwrite or cancel
+-- else, we are adding an element or inserting it
+function drawScreen_itemEdit(tab)
+  tab = tab or currentTab
+  draw.setColor(3,15)
+  draw.drawBox(-1,15,49,2)
+  draw.drawBox(-1,-1,49,1)
+  draw.setColor(15,0)
+  draw.write(fitRight(strLikeDir(currentPath[tab],tab),47),1,0) -- dir name
+  
+  draw.setColor(8,15)
+  draw.drawBox(16,1,32,14) -- window area
+  
+  draw.setColor(0,7)
+  draw.writeWrapped("|::<::::::::::",16,1,1)
+  bttnList = {{"beep",{12,2},{0,15}}, {"boop",{32,3},{7,2}}}
+  drawButtons(buttonTables.itemEdit)
+  drawButtons(buttonTables.itemEditSetType)
+  local thisItemDisplay, thisItemColors = contentDesc(editorTableVal)
+  
+  draw.write(editorTableKey, 10, 2)
+  draw.write(thisItemDisplay, 10, 4)
+  --drawButtons(buttonTables.itemEditSecret)
 end
 
 function drawAnims_imTheMap(tab)
   tab = tab or currentTab
   draw.setColor(15,0)
-  if #strLikeDir(currentPath[tab]) >= 47 then
+  if pathNameIsLong then
     draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
     --draw.write(fitRight(strLikeDir(currentPath),47),1,0)
   end
   if mapSelc > 0 and (mapSelc-mapScrollOfset <= 12) then
-    thisName = currentKeys[tab][mapSelc-mapScrollOfset]
+    thisName = tostring(currentKeys[tab][mapSelc-mapScrollOfset])
   if thisName == nil then
 	  draw.write("!!ERROR NIL NAME!!",0,1+mapSelc-mapScrollOfset,16)
 	elseif #thisName > 16 then
@@ -569,35 +642,12 @@ function drawAnims_imTheMap(tab)
 	end
   end
 end
-
-
--- if current name matches an element in current directory, we are editing.
--- on matching name, ask to keep or overwrite or cancel
--- else, we are adding an element or inserting it
-function drawMockup_editScreen()
-  draw.setColor(3,15)
-  draw.drawBox(-1,15,49,2)
-  draw.drawBox(-1,-1,49,1)
-  draw.setColor(15,0)
-  draw.write(fitRight(strLikeDir(currentPath[tab]),47),1,0) -- dir name
-  
-  draw.setColor(8,15)
-  draw.drawBox(16,1,32,14) -- window area
-  
-  draw.setColor(0,7)
-  draw.writeWrapped("|::<::::::::::",16,1,1)
-  draw.write(" COPY : editing Clipboard 0    ", 17, 2)
-  draw.write("      :                        ", 17, 3)
-  draw.write(" Type : [b] [n] string [t] [!] ", 17, 4)
-  draw.write(" Key  : noMoreLonelyNights     ", 17, 5)
-  draw.write(" Val  : two love stories       ", 17, 10)
-  draw.write(" [Cancel]   [Save]   [Delete]  ", 17, 11)
-  draw.write(" [Copy to...]  [Set from...]   ", 17, 12)
-  draw.setColor(8,7)
-  draw.write(" [Insert from...]  [Collapse]  ", 17, 13)
-  --draw.write(textutils.serializeJSON(inputs), 1, 20)
-  bttnList = {{"beep",{12,2},{0,15}}, {"boop",{32,3},{7,2}}}
-  drawButtons(bttnList)
+function drawAnims_itemEdit(tab)
+  if pathNameIsLong then
+    draw.setColor(15,0)
+    draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
+    --draw.write(fitRight(strLikeDir(currentPath),47),1,0)
+  end
 end
 
 
@@ -619,16 +669,17 @@ function main()
 	    needRedraw = false
 	  elseif screenMode == 'edit' then
         draw.clear(15)
-	    drawMockup_editScreen()
-	    needRedraw = true
+	    drawScreen_itemEdit()
+	    needRedraw = false
 	  end
 	else
 	  if screenMode == 'map' then
-        drawAnims_imTheMap()
+        drawAnims_imTheMap(currentTab)
 	  elseif screenMode == 'edit' then
-	    drawMockup_editScreen()
+	    drawAnims_itemEdit(currentTab)
 	  end
 	end
+	--draw.write(tostring(pathNameIsLong), 12, 12)
   end
 end
 main()
