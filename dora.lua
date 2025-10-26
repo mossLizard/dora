@@ -222,6 +222,7 @@ function handle_clickTab(tabName)
     --setEditorState(tabName)
 	currentTab = tabName
 	mapSelc = 0
+	trySound("ui.bip_1")
   end
 end
 
@@ -233,10 +234,12 @@ function handle_clickItemList(indexOnScreen)
 	  mapScrollOfset = 0
 	  if #currentPath[currentTab] > 0 then
 	    currentPath[currentTab][#currentPath[currentTab]] = nil
+		trySound("ui.bip_0")
 		needRedraw = true
 		needExplore = true
 	  end
 	elseif(selcItem > 0 and selcItem <= #currentKeys[currentTab]) then -- is valid item?
+      trySound("ui.bip_0")
 	  if selcItem == mapSelc then -- double clicked?
 	    trySubdir(currentKeys[currentTab][selcItem],currentTab)
 		mapSelc = 0
@@ -444,14 +447,25 @@ buttonTables = { -- predefining this so I don't have to keep building it
 	{["name"] = "[View]", ["pos"] = {14,-1}, ["color"] = {15,3}}, 
 	{["name"] = "[Help]", ["pos"] = {21,-1}, ["color"] = {15,3}} 
   },
-    ["primitiveEdit"] = { 
-    {["name"] = "[Add]",  ["pos"] = {0, 15}, ["color"] = {15,3}}, 
-    {["name"] = "[Save]", ["pos"] = {6, 15}, ["color"] = {15,3}}, 
-	{["name"] = "[Key]",  ["pos"] = {15,15}, ["color"] = {15,3}}, 
-	{["name"] = "[Val]",  ["pos"] = {21,15}, ["color"] = {15,3}, ["func"] = setEditorState, ["params"] = {"edit"}},
-	{["name"] = "[Inst]", ["pos"] = {28,15}, ["color"] = {15,3}},
-	{["name"] = "[Chop]", ["pos"] = {35,15}, ["color"] = {15,3}},
-	{["name"] = "[Move]", ["pos"] = {42,15}, ["color"] = {15,3}}
+    ["actions"] = { 
+    {["name"] = "[Add]",  ["pos"] = {0, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"add"}}, 
+	-- Add an item to the current layer. provide key, then provide immediate val ("str hello") or path ("B/const/pi")
+    {["name"] = "[Copy]", ["pos"] = {6, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"copy"}}, 
+	-- Copy selected element to another location. Provide path ("B/tmp/one"); will prompt key if ending with / ("B/tmp/")
+	{["name"] = "[Key]",  ["pos"] = {15,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setKey"}}, 
+	-- Quickly overwrite the key of selected element. Provide str or num immediates ONLY!
+	{["name"] = "[Val]",  ["pos"] = {21,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setVal"}},
+	-- Quickly overwrite the value of selected element. Provide immediate or path.
+	{["name"] = "[Inst]", ["pos"] = {28,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"insert"}},
+	-- Insert layers between current layer and selected element. Providing a path will add ALL layers between it and the root.
+	-- inserting "B/tmp/one/" at "A/beep/(str test)" will result in "A/beep/tmp/one/(str test)"
+	{["name"] = "[Chop]", ["pos"] = {35,15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"chop"}}
+	-- Remove this table element and reparent its children. 
+	--Chopping "A/beep/tmp" will move "A/beep/tmp/*" to "A/beep/*"
+	-- THIS is the function I am writing Dora for! THIS RIGHT HERE!!! it will make editing SO much easier!
+	
+	-- ./ is replaced with the current layer on entry
+	-- ../, .../ etc are replaced with the parent layer, grandparent layer, etc.
   },
   ["itemList"] = {
     {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {-1}}
