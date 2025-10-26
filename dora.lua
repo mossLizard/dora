@@ -18,9 +18,9 @@ local inputs = {}
 local screenMode = "map"
 local editorMode = "none"
 local currentTab = "main" -- board selected
-local validTabs = {"main", "0","1","2","3","4","5","6","7","8","9"}
-local currentPath = {['main'] = {"noise_router"}, ['0'] = {}, ['1'] = {"test_subdir"}, ['2'] = {}, ['3'] = {}} -- path of each board
-local currentFiles = {['main'] = {}, ['0'] = {}, ['1'] = {["test_val"] = 27.4, ["test_list"] = {0,1,2,3,4,5}, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['2'] = {}, ['3'] = {}, ['4'] = {}}
+local validTabs = {"main", "clpA","clpB","clpC"}
+local currentPath = {['main'] = {"noise_router"}, ['clpA'] = {}, ['clpB'] = {"test_subdir"}, ['clpC'] = {}} -- path of each board
+local currentFiles = {['main'] = {}, ['clpA'] = {["test_val"] = 27.4, ["test_list"] = {0,1,2,3,4,5}, ["test_bool"] = true, ["test_subdir"] = {["a"] = "a", ["b"] = "b", ["c"] = "c", ["d"] = { ["one"] = "one", ["two"] = 2}}, ["is_this_a_comically_long_key_name"] = "yes"}, ['clpB'] = {}, ['clpC'] = {}}
 local currentTable = {}
 local currentKeys = {}
 local tabColors = {}
@@ -32,12 +32,11 @@ function populateCurrents()
     currentPath[tab] = currentPath[tab] or {}
 	currentTable[tab] = currentTable[tab] or {}
 	currentKeys[tab] = currentKeys[tab] or {}
-	tabColors[tab] = {15,1+i} 
+	tabColors[tab] = {15,2+i} 
 	--tabColor[tab] = 11 -- 3 is light blue
   end
 end
 populateCurrents()
-
 local editorTable = {} -- selected item in the editor
 local editorPath = {}  -- path to selected item, including table select
 local tempTable = {}   -- for copy / paste operations
@@ -99,7 +98,32 @@ local function scrollText(text, width, ofset, fitRightInstead, joint)
   end
 end
 
-local function drawSingleButton(bttn)
+-- I'd like to join these to the normal interval loop at some point but this will have to do for now.
+function promptTextEntry(title, bodyText, colors)
+  colors = colors or {7, 3, 0, 4}
+  bodyText = bodyText or {"sample text"}
+  if type(bodyText) == "string" then bodyTezt = {bodyText} end
+  draw.setColor(colors[1],15)
+  draw.drawBox(5,2,38,#bodyText + 6 or 12)
+  draw.setColor(15,colors[2])
+  --draw.drawBox(5,3,38,1,"_")
+  draw.write(tostring(title),6,3,36)
+  draw.setColor(colors[3],colors[1])
+  draw.writeList(bodyText,6,5,36)
+  draw.setColor(colors[4],colors[1])
+  draw.write(">",6,#bodyText + 6,36)
+  draw.setCursorPos(8,#bodyText + 6)
+  sto = read()
+  return sto
+  
+  --draw.setCursorPos()
+end
+
+function promptSelection(title, bodyText, choices)
+  
+end
+
+function drawSingleButton(bttn)
   if bttn.name == nil or bttn.pos == nil then
     return false
   end
@@ -110,7 +134,7 @@ local function drawSingleButton(bttn)
   return true
 end
 
-local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
+function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
   for i,bttn in ipairs(buttonList) do
     drawSingleButton(bttn)
     --print(bttn)
@@ -120,7 +144,7 @@ local function drawButtons(buttonList) -- {name,{x,y},{tx,bg},func,argument2}
   end
 end
 
-local function checkButtons(buttonList, mouseClickEvent)
+function checkButtons(buttonList, mouseClickEvent)
   -- goes through the list of buttons and finds the last one clicked by this mouse event. Returns true if a button was pressed, as well as the name of the button pressed. If the button had a function and parameters attached, the function is run and the results are returned as third value.
   --print()
   --print(serl(mouseClickEvent))
@@ -415,16 +439,19 @@ end
 
 buttonTables = { -- predefining this so I don't have to keep building it
   ["menuBar"] = { 
-    {["name"] = " DORA - ...... ...... ...... ", ["pos"] = {0,-1}, ["color"] = {15,3}},
-    {["name"] = "[File]", ["pos"] = {8,-1}, ["color"] = {15,3}}, 
-	{["name"] = "[View]", ["pos"] = {15,-1}, ["color"] = {15,3}}, 
-	{["name"] = "[Help]", ["pos"] = {22,-1}, ["color"] = {15,3}} 
+    {["name"] = " V0.1 * ...... ...... ...... ", ["pos"] = {-1,-1}, ["color"] = {15,3}},
+    {["name"] = "[File]", ["pos"] = {7,-1}, ["color"] = {15,3}}, 
+	{["name"] = "[View]", ["pos"] = {14,-1}, ["color"] = {15,3}}, 
+	{["name"] = "[Help]", ["pos"] = {21,-1}, ["color"] = {15,3}} 
   },
     ["primitiveEdit"] = { 
-    {["name"] = "[Copy]", ["pos"] = {0,15}, ["color"] = {15,3}}, 
-    {["name"] = "[Set]", ["pos"] = {7,15}, ["color"] = {15,3}}, 
-	{["name"] = "[Add]", ["pos"] = {13,15}, ["color"] = {15,3}}, 
-	{["name"] = "[Edit]", ["pos"] = {19,15}, ["color"] = {15,3}, ["func"] = setEditorState, ["params"] = {"edit"}}
+    {["name"] = "[Add]",  ["pos"] = {0, 15}, ["color"] = {15,3}}, 
+    {["name"] = "[Save]", ["pos"] = {6, 15}, ["color"] = {15,3}}, 
+	{["name"] = "[Key]",  ["pos"] = {15,15}, ["color"] = {15,3}}, 
+	{["name"] = "[Val]",  ["pos"] = {21,15}, ["color"] = {15,3}, ["func"] = setEditorState, ["params"] = {"edit"}},
+	{["name"] = "[Inst]", ["pos"] = {28,15}, ["color"] = {15,3}},
+	{["name"] = "[Chop]", ["pos"] = {35,15}, ["color"] = {15,3}},
+	{["name"] = "[Move]", ["pos"] = {42,15}, ["color"] = {15,3}}
   },
   ["itemList"] = {
     {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {-1}}
@@ -475,18 +502,19 @@ function drawMenuBar()
   draw.setColor(15,3)
   --draw.write(" DORA - [File] [View] [Help] - [main|==========] ",-1,-1,49)
   local tabButtons = {
-    {["name"] = "[----|----------]  ", ["pos"] = {29,-1}, ["color"] = {15,3}},
-    {["name"] = "main", ["pos"] = {30,-1}, ["color"] = {15,13}, ["func"] = handle_clickTab, ["params"] = {"main"}}, 
-	{["name"] = "|0", ["pos"] = {34,-1}, ["color"] = tabColors["0"], ["func"] = handle_clickTab, ["params"] = {"0"}}
+    {["name"] = "[---- ---- ---- ----]", ["pos"] = {28,-1}, ["color"] = {15,3}}
   } -- I have to generate this on-site because tab colors change
+  tabOfset = 0
   for i,v in ipairs(validTabs) do
-    if i >= 3 then -- manually ignore first 3 :(
-	  tabButtons[i+1] = {
-		["name"] = v, 
-		["pos"] = {33+i, -1}, 
+	tabButtons[i+1] = {
+	    ["name"] = v, 
+		["pos"] = {29+tabOfset, -1}, 
 		["color"] = tabColors[v],
 		["func"] = handle_clickTab
 	}
+	tabOfset = tabOfset + #v + 1
+	if v == currentTab then
+	  tabButtons[i+1]["color"] = {tabColors[v][2],tabColors[v][1]}
 	end
   end
   buttonTables.tablets = tabButtons
@@ -604,17 +632,9 @@ end
 -- else, we are adding an element or inserting it
 function drawScreen_itemEdit(tab)
   tab = tab or currentTab
-  draw.setColor(3,15)
-  draw.drawBox(-1,15,49,2)
-  draw.drawBox(-1,-1,49,1)
   draw.setColor(15,0)
   draw.write(fitRight(strLikeDir(currentPath[tab],tab),47),1,0) -- dir name
-  
-  draw.setColor(8,15)
-  draw.drawBox(16,1,32,14) -- window area
-  
-  draw.setColor(0,7)
-  draw.writeWrapped("|::<::::::::::",16,1,1)
+ 
   bttnList = {{"beep",{12,2},{0,15}}, {"boop",{32,3},{7,2}}}
   drawButtons(buttonTables.itemEdit)
   drawButtons(buttonTables.itemEditSetType)
@@ -623,6 +643,14 @@ function drawScreen_itemEdit(tab)
   draw.write(editorTableKey, 10, 2)
   draw.write(thisItemDisplay, 10, 4)
   --drawButtons(buttonTables.itemEditSecret)
+  
+  promptTextEntry(" Set Val ("..editorTableKey..")", 
+    {"  Enter new value type below, or   ",
+     "    leave blank to keep type.      ",
+	 "", 
+	 " "..thisItemDisplay:sub(1,3).." -> bol | num | str | tab | lst ", 
+	 "     -> nil (delete) | cpy (copy) "},
+	 {14, 14, 1, 4})
 end
 
 function drawAnims_imTheMap(tab)
