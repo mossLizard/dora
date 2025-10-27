@@ -84,7 +84,7 @@ end
 local function scrollText(text, width, ofset, fitRightInstead, joint)
   joint = joint or '  -  ' --' ' .. string.char(127) .. ' '
   padding = ' '
-  ofset = math.floor(ofset or 0)
+  ofset = math.floor(math.max(ofset - 2,0) or 0)
   text = tostring(text)
   if #text <= width then
     if fitRightInstead then
@@ -105,15 +105,15 @@ function promptTextEntry(title, bodyText, colors)
   bodyText = bodyText or {"sample text"}
   if type(bodyText) == "string" then bodyTezt = {bodyText} end
   draw.setColor(colors[1],15)
-  draw.drawBox(5,2,38,#bodyText + 6 or 12)
+  draw.drawBox(15,1,33,13)
   draw.setColor(15,colors[2])
   --draw.drawBox(5,3,38,1,"_")
-  draw.write(tostring(title),6,3,36)
+  draw.write(tostring(title),16,2,32)
   draw.setColor(colors[3],colors[1])
-  draw.writeList(bodyText,6,5,36)
+  draw.writeList(bodyText,16,4,32)
   draw.setColor(colors[4],colors[1])
-  draw.write(">",6,#bodyText + 6,36)
-  draw.setCursorPos(8,#bodyText + 6)
+  draw.write(">",16,12,32)
+  draw.setCursorPos(18,12)
   sto = read()
   return sto
   
@@ -255,8 +255,92 @@ function handle_clickItemList(indexOnScreen)
   end
 end
 
-function handle_actionButton(buttonName)
-   
+function parseValString(inpt)
+  prefix = inpt:sub(1,2)
+  if prefix == "A/" or prefix == "B/" or prefix == "C/" or prefix == "./" then
+	thisPath = {} -- we have a path! probably
+	thisTab = currentTab
+	for i,v in ipairs(validTabs) do
+	  if prefix == v.."/" then 
+	    thisTab = v
+		break 
+	  end
+	end
+	endsInSlash = (inpt:sub(-1) == "/")
+	for i in string.gmatch(inpt:sub(3,-1),"[^/]+") do
+	  thisPath[#thisPath+1] = i
+	end
+	return "path", thisPath, thisTab, endsInSlash
+  elseif prefix == "st" then
+    thisStr = inpt:sub(5,-1) -- remove "str "
+	return "string", thisStr
+  elseif prefix == "nu" then
+    thisNum = tonumber(inpt:sub(4,-1))
+	return "number", thisNum
+  elseif prefix == "ni" then
+    thisStr = inpt:sub(5,-1) -- remove "nil "
+	return "nil", thisStr
+  else
+    return "invalid"
+  end
+end
+
+function aes()
+  local sto = promptTextEntry("JEAAAAAAAEJ!",{"cool party."})
+  print(serl({parseValString(sto)}))
+  error()
+  --climb()
+end
+--aes()
+
+
+function handle_clickAction(actionType)
+  --setEditorState("edit")
+  if actionType == "add" then
+    local sto = "" -- new item
+	local stoKey = "" -- its key
+	local prVal = promptTextEntry("Add Item [1/2]",{" Please provide the value"," of the new item."})
+	local prKey = ""
+	local prType, prA, prB, prC = parseValString(prVal)
+	if prType == "invalid" then return nil end
+	if prType == "path" and not prC then
+	  prVal = climb(currentFiles[prB], prA)
+	  prKey = prA[#prA]
+	  prKeyAlt = promptTextEntry("Add Item [2/2]",{"Provide a key for the new item"," (or press ENTER to copy the"," key of your target.)"})
+	  if prKeyAlt ~= "" then prKey = prKeyAlt end
+	elseif prType == "string" then
+	  prVal = prA
+	  prKey = promptTextEntry("Add Item [2/2]",{"Provide a key for the new string"})
+	elseif prType == "nil" then
+	  prVal = nil
+	  if prA == nil or #prA == 0 then
+	    prKey = promptTextEntry("Add Item [2/2]",{"Select an item to delete"})
+	  else
+	    prKey = prA
+	  end
+	end
+	editorPath = {}
+	for i,v in ipairs(currentPath[currentTab]) do
+	  editorPath[i] = v
+	end
+	editorPath[#editorPath+1] = prKey
+	--error(serl(editorPath))
+	plant(currentFiles[currentTab], editorPath, prVal)
+	setEditorState("map")
+	needExplore = true
+	needRedraw = true
+  elseif actionType == "nav" then
+	local prInpt = promptTextEntry("Navigate",{" Provide the new path."})
+	local prType, prPath, prTab, endsInSlash = parseValString(prInpt)
+	if prType == "path" then
+	  currentTab = prTab
+	  currentPath[prTab] = prPath
+	  needExplore = true
+	  needRedraw = true
+	end
+  else
+    error("Invalid action button ("..tostring(actionType)..")!")
+  end
 end
 
 function setEditorState(newState)
@@ -372,12 +456,13 @@ end
 function plant(tabel, path, val)
   -- sets the value at the end of the path to the given value
   -- like "planting" a flag at the top of a tree. Or in place of a branch.
+  --print(serl(tabel),serl(path), val)
   if path == nil then
     tabel = val
     return tabel
   elseif type(path) ~= "table" then
     error("Could not plant value; path is not a table!")
-  elseif path == nil or #path <= 1 then
+  elseif #path <= 1 then
     tabel[path[1]] = val
 	return tabel
   else
@@ -423,6 +508,7 @@ function explore(path, tab)
   currentTable[tab] = climbResult
   -- currentTable[tab] SHOULD now be updated
   currentKeys[tab] = {}
+  print(currentTable[tab])
   local ic = 1
   for k,v in pairs(currentTable[tab]) do
     currentKeys[tab][ic] = k
@@ -446,7 +532,8 @@ buttonTables = { -- predefining this so I don't have to keep building it
 	{["name"] = " Key ", ["pos"] = {22, 14}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setKey"}}, 
 	{["name"] = " Val ", ["pos"] = {22, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"setVal"}},
 	{["name"] = " Inst", ["pos"] = {28, 14}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"insert"}},
-	{["name"] = " Chop", ["pos"] = {28, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"chop"}}
+	{["name"] = " Chop", ["pos"] = {28, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"chop"}},
+	{["name"] = " Nav ", ["pos"] = {36, 15}, ["color"] = {15,3}, ["func"] = handle_clickAction, ["params"] = {"nav"}}
   },
   ["itemList"] = {
     {["name"] = "parent", ["pos"] = {0,1}, ["size"] = {48,1}, ["func"] = handle_clickItemList, ["params"] = {-1}}
@@ -649,7 +736,7 @@ end
 function drawCurrentPathDir(tab)
   tab = tab or currentTab
   draw.setColor(15,0)
-  draw.write(scrollText(" "..tab..strLikeDir(currentPath[tab]),49, tick / 4, false),-1,0)
+  draw.write(scrollText(" "..tab..strLikeDir(currentPath[tab]),49, tick / 6, false),-1,0)
   
 end
 
@@ -673,7 +760,8 @@ end
 function drawAnims_itemEdit(tab)
   if pathNameIsLong then
     draw.setColor(15,0)
-    draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
+	drawCurrentPathDir(tab)
+    --draw.write(scrollText(strLikeDir(currentPath[tab]),46, tick / 4, true),1,0)
     --draw.write(fitRight(strLikeDir(currentPath),47),1,0)
   end
 end
@@ -713,3 +801,11 @@ end
 main()
 draw.setCursorPos(-1,-1)
 print("DONE")
+
+
+  -- You're not alone
+  -- No matter what or who you've been
+  -- No matter when or where you've seen
+  -- All the knives seem to lacerate your brain
+  -- I've had my share, and I'll help you with the pain
+  -- You're not alone
