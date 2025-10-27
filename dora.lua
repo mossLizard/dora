@@ -277,7 +277,7 @@ function parseValString(inpt)
   elseif prefix == "nu" then
     thisNum = tonumber(inpt:sub(4,-1))
 	return "number", thisNum
-  elseif prefix == "ni" then
+  elseif prefix == "de" or prefix == "ni" then
     thisStr = inpt:sub(5,-1) -- remove "nil "
 	return "nil", thisStr
   else
@@ -323,7 +323,7 @@ function handle_clickAction(actionType)
 	  editorPath[i] = v
 	end
 	editorPath[#editorPath+1] = prKey
-	--error(serl(editorPath))
+	--error(prVal)
 	plant(currentFiles[currentTab], editorPath, prVal)
 	setEditorState("map")
 	needExplore = true
@@ -332,9 +332,17 @@ function handle_clickAction(actionType)
 	local prPath = promptTextEntry("Copy item",{"Where do you want to", " copy this item to?"})
 	local prType, prPath, prTab, prSlash = parseValString(prPath)
 	if prType ~= "path" then return nil end
-	  
     if mapSelc ~= 0 then
+      editorPath = currentPath[currentTab]
+	  editorTableKey = currentKeys[currentTab][mapSelc]
+	  if prSlash then prPath[#prPath+1] = editorTableKey end
+	  prVal = currentTable[currentTab][editorTableKey]
+	  --error(serl(currentTable[prTab]))
+	  plant(currentFiles[prTab],prPath, prVal)
+	  needExplore = true
+	  needRedraw = true
 	end
+	--plant(currentFiles[prTab],prPath, prVal)
   elseif actionType == "nav" then
 	local prInpt = promptTextEntry("Navigate",{" Provide the new path."})
 	local prType, prPath, prTab, endsInSlash = parseValString(prInpt)
@@ -463,10 +471,11 @@ end
 function plant(tabel, path, val)
   -- sets the value at the end of the path to the given value
   -- like "planting" a flag at the top of a tree. Or in place of a branch.
-  --print(serl(tabel),serl(path), val)
   if path == nil then
     tabel = val
     return tabel
+  elseif tabel == nil then
+    error("nil tabel again :(")
   elseif type(path) ~= "table" then
     error("Could not plant value; path is not a table!")
   elseif #path <= 1 then
