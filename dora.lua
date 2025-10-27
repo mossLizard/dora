@@ -293,7 +293,6 @@ function aes()
 end
 --aes()
 
-
 function handle_clickAction(actionType)
   --setEditorState("edit")
   if actionType == "add" then
@@ -329,6 +328,13 @@ function handle_clickAction(actionType)
 	setEditorState("map")
 	needExplore = true
 	needRedraw = true
+  elseif actionType == "copy" then
+	local prPath = promptTextEntry("Copy item",{"Where do you want to", " copy this item to?"})
+	local prType, prPath, prTab, prSlash = parseValString(prPath)
+	if prType ~= "path" then return nil end
+	  
+    if mapSelc ~= 0 then
+	end
   elseif actionType == "nav" then
 	local prInpt = promptTextEntry("Navigate",{" Provide the new path."})
 	local prType, prPath, prTab, endsInSlash = parseValString(prInpt)
@@ -341,6 +347,7 @@ function handle_clickAction(actionType)
   else
     error("Invalid action button ("..tostring(actionType)..")!")
   end
+  
 end
 
 function setEditorState(newState)
